@@ -11,12 +11,16 @@ include("Observables.jl")
 include("MPSAlgebra.jl")
 include("Arnoldi.jl")
 include("GlobalKrylov.jl")
+include("EndpointRecords.jl")
 include("FreeFermion.jl")
 include("Output.jl")
 
 export bath_green_greater,
     bath_green_lesser,
     bath_position,
+    average_spin_component_record,
+    average_spin_component_records,
+    global_krylov_endpoint_record,
     global_mps_arnoldi_basis,
     midpoint_global_krylov_step,
     benchmark_is_runnable,
@@ -53,6 +57,7 @@ export bath_green_greater,
     semicircular_dos,
     one_particle_density_diagnostics,
     run_free_midpoint_steps,
+    run_global_krylov_component,
     siam_model_spec,
     siam_mpo,
     siam_opsum,

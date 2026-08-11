@@ -31,6 +31,16 @@ provenance explicitly, including at minimum:
 
 The serializer does not infer any of these values from mutable process state.
 
+## Endpoint-record ownership
+
+`global_krylov_endpoint_record` measures a caller-supplied state and endpoint
+MPO. `run_global_krylov_component` returns the initial and evolved states,
+endpoint records, and step diagnostics for one caller-supplied atomic spin
+component. `average_spin_component_records` averages only corresponding scalar
+records from the separately evolved `:Up` and `:Dn` components; its reported
+maximum link dimension is the maximum, not an average. These helpers do not
+select a factorization, construct an MPO, or write files.
+
 ## File ownership
 
 Callers provide exact output paths to the serialization helpers. Generated

@@ -536,41 +536,37 @@ end
         breakdown_tolerance = 1e-12,
     )
 
-    function evolve_atomic_component(component)
-        states = MPS[initial_product_mps(model, sites, component)]
-        step_diagnostics = NamedTuple[]
-        for step in eachindex(midpoint_hamiltonians)
-            dt = endpoints[step + 1] - endpoints[step]
-            evolved = midpoint_global_krylov_step(
-                states[end], midpoint_hamiltonians[step], dt; controls...
-            )
-            push!(states, evolved.state)
-            push!(step_diagnostics, evolved.diagnostics)
-        end
-        return (states, step_diagnostics)
-    end
-
-    up_states, up_steps = evolve_atomic_component(:Up)
-    down_states, down_steps = evolve_atomic_component(:Dn)
-    up_diagnostics = [
-        state_diagnostics(up_states[index], endpoint_hamiltonians[index], model.impurity_position)
-        for index in eachindex(endpoints)
-    ]
-    down_diagnostics = [
-        state_diagnostics(down_states[index], endpoint_hamiltonians[index], model.impurity_position)
-        for index in eachindex(endpoints)
-    ]
+    up_result = run_global_krylov_component(
+        initial_product_mps(model, sites, :Up),
+        endpoints,
+        midpoint_hamiltonians,
+        endpoint_hamiltonians,
+        model.impurity_position;
+        controls...,
+    )
+    down_result = run_global_krylov_component(
+        initial_product_mps(model, sites, :Dn),
+        endpoints,
+        midpoint_hamiltonians,
+        endpoint_hamiltonians,
+        model.impurity_position;
+        controls...,
+    )
+    averaged_records = average_spin_component_records(up_result.records, down_result.records)
 
     @test grid.midpoint_indices == [2, 4]
-    @test length(up_states) == length(endpoints)
-    @test length(down_states) == length(endpoints)
-    @test all(diagnostics -> isapprox(diagnostics.output_norm, 1.0; atol = 1e-9), up_steps)
-    @test all(diagnostics -> isapprox(diagnostics.output_norm, 1.0; atol = 1e-9), down_steps)
-    @test all(diagnostics -> diagnostics.projected_residual ≥ 0.0, up_steps)
-    @test all(diagnostics -> diagnostics.projected_residual ≥ 0.0, down_steps)
+    @test length(up_result.states) == length(endpoints)
+    @test length(down_result.states) == length(endpoints)
+    @test all(diagnostics -> isapprox(diagnostics.output_norm, 1.0; atol = 1e-9), up_result.step_diagnostics)
+    @test all(diagnostics -> isapprox(diagnostics.output_norm, 1.0; atol = 1e-9), down_result.step_diagnostics)
+    @test all(diagnostics -> diagnostics.projected_residual ≥ 0.0, up_result.step_diagnostics)
+    @test all(diagnostics -> diagnostics.projected_residual ≥ 0.0, down_result.step_diagnostics)
+    @test isempty(validate_trajectory_records(averaged_records))
+    @test [record.time for record in averaged_records] == endpoints
     for index in eachindex(endpoints)
-        up = up_diagnostics[index]
-        down = down_diagnostics[index]
+        up = up_result.records[index].diagnostics
+        down = down_result.records[index].diagnostics
+        average = averaged_records[index].diagnostics
         @test up.norm ≈ 1.0 atol = 1e-9
         @test down.norm ≈ 1.0 atol = 1e-9
         @test up.total_particle_number ≈ 11.0 atol = 1e-9
@@ -582,11 +578,27 @@ end
         @test up.impurity_double_occupancy ≈ down.impurity_double_occupancy atol = 1e-9
         @test spin_average(up.impurity_nup, down.impurity_nup) ≈
               spin_average(up.impurity_ndn, down.impurity_ndn) atol = 1e-9
-        @test spin_average(up.spin_projection, down.spin_projection) ≈ 0.0 atol = 1e-9
-        @test 0.0 ≤ spin_average(
-            up.impurity_double_occupancy, down.impurity_double_occupancy
-        ) ≤ 1.0
+        @test average.norm ≈ spin_average(up.norm, down.norm) atol = 1e-12
+        @test average.total_particle_number ≈ 11.0 atol = 1e-9
+        @test average.impurity_nup ≈ average.impurity_ndn atol = 1e-9
+        @test average.spin_projection ≈ 0.0 atol = 1e-9
+        @test average.max_link_dimension == max(up.max_link_dimension, down.max_link_dimension)
+        @test 0.0 ≤ average.impurity_double_occupancy ≤ 1.0
     end
+    @test_throws ArgumentError average_spin_component_records(
+        up_result.records, down_result.records[1:end-1]
+    )
+    @test_throws ArgumentError average_spin_component_record(
+        up_result.records[1], down_result.records[2]
+    )
+    @test_throws ArgumentError run_global_krylov_component(
+        initial_product_mps(model, sites, :Up),
+        [0.0],
+        midpoint_hamiltonians,
+        endpoint_hamiltonians,
+        model.impurity_position;
+        controls...,
+    )
 end
 
 @testset "Global Krylov numerical convergence" begin
