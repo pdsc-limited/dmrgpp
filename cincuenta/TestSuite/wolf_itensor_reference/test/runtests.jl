@@ -322,6 +322,53 @@ end
     )
 end
 
+@testset "One midpoint global MPS Krylov step" begin
+    # This is an Lb=10 static-Hamiltonian primitive test, not a trajectory or
+    # a Wolf benchmark result.
+    bath = factorized_bath_spec(fill(0.2 + 0.1im, 1, 5), fill(-0.1 + 0.05im, 1, 5))
+    model = siam_model_spec(4.0, bath)
+    sites = electron_sites(model)
+    state = initial_product_mps(model, sites, :Up)
+    hamiltonian = siam_mpo(model, sites, 1)
+    controls = (
+        krylovdim = 3,
+        action_cutoff = 0.0,
+        action_maxdim = 100,
+        orthogonalization_cutoff = 0.0,
+        orthogonalization_maxdim = 100,
+        combination_cutoff = 0.0,
+        combination_maxdim = 100,
+        breakdown_tolerance = 1e-12,
+    )
+
+    unchanged = midpoint_global_krylov_step(state, hamiltonian, 0.0; controls...)
+    @test unchanged.state !== state
+    @test unchanged.state ≈ state atol = 1e-14
+    @test unchanged.diagnostics.accepted_dimension == 0
+    @test unchanged.diagnostics.projected_residual == 0.0
+    @test unchanged.diagnostics.norm_drift == 0.0
+
+    evolved = midpoint_global_krylov_step(state, hamiltonian, 0.02; controls...)
+    diagnostics = evolved.diagnostics
+    @test evolved.state !== state
+    @test diagnostics.accepted_dimension == 3
+    @test !diagnostics.breakdown
+    @test size(diagnostics.hessenberg) == (4, 3)
+    @test diagnostics.projected_hermiticity_defect ≤ 1e-9
+    @test maximum(abs, diagnostics.second_pass_defects) ≤ 1e-9
+    @test diagnostics.projected_residual ≥ 0.0
+    @test diagnostics.input_norm ≈ 1.0 atol = 1e-12
+    @test diagnostics.output_norm ≈ 1.0 atol = 1e-9
+    @test abs(diagnostics.norm_drift) ≤ 1e-9
+    @test diagnostics.controls == controls
+
+    @test_throws ArgumentError midpoint_global_krylov_step(state, hamiltonian, Inf; controls...)
+    invalid_controls = merge(controls, (combination_maxdim = 0,))
+    @test_throws ArgumentError midpoint_global_krylov_step(
+        state, hamiltonian, 0.02; invalid_controls...
+    )
+end
+
 @testset "Atomic initial states and local observables" begin
     # Static Lb=10 product states only; no time evolution is performed here.
     lesser_factor = fill(0.1 + 0.2im, 2, 5)

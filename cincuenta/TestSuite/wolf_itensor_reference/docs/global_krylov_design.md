@@ -1,9 +1,10 @@
 # Global MPS Krylov midpoint propagation: design
 
-Status: design gate.  No global-Krylov propagation code has been written yet.
-This document specifies the smallest independently testable implementation
-needed to reproduce the propagation class used by Wolf, McCulloch, and
-Schollwoeck.
+Status: the basis builder and a single midpoint-step primitive are implemented
+and tested on a static `Lb=10` model. This document specifies the independently
+testable implementation needed to reproduce the propagation class used by Wolf,
+McCulloch, and Schollwoeck. The required noninteracting acceptance tests remain
+outstanding.
 
 ## Why this replaces local TDVP
 
@@ -26,7 +27,7 @@ property required here.
 
 ## Explicit inputs and outputs
 
-The eventual one-step function should have this conceptual interface:
+The implemented one-step function has this interface:
 
 ```julia
 midpoint_global_krylov_step(
@@ -94,8 +95,9 @@ dimension, all three compression controls, and `dt` independently.
 
 ## Acceptance sequence
 
-1. **Algebraic unit tests:** explicit MPS addition/scaling/overlap and Arnoldi
-   orthogonality on static `Lb=10` states.
+1. **Algebraic unit tests:** explicit MPS addition/scaling/overlap, Arnoldi
+   orthogonality, and a static-`Lb=10` midpoint-step norm/diagnostic test are
+   complete.
 2. **Remote-amplitude test:** for `U=0`, compare a selected Fock-state
    transition amplitude after one midpoint step with the direct MPO matrix
    element at order `dt`.  This is more sensitive than an occupation, whose
