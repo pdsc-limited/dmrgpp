@@ -255,6 +255,73 @@ end
     )
 end
 
+@testset "Global MPS Arnoldi basis" begin
+    # Static Lb=10 basis construction only; no exponential or trajectory.
+    bath = factorized_bath_spec(fill(0.2 + 0.1im, 1, 5), fill(-0.1 + 0.05im, 1, 5))
+    model = siam_model_spec(4.0, bath)
+    sites = electron_sites(model)
+    state = initial_product_mps(model, sites, :Up)
+    hamiltonian = siam_mpo(model, sites, 1)
+    arnoldi = global_mps_arnoldi_basis(
+        state,
+        hamiltonian;
+        krylovdim = 3,
+        action_cutoff = 0.0,
+        action_maxdim = 100,
+        orthogonalization_cutoff = 0.0,
+        orthogonalization_maxdim = 100,
+        breakdown_tolerance = 1e-12,
+    )
+
+    m = arnoldi.accepted_dimension
+    @test m == 3
+    @test !arnoldi.breakdown
+    @test length(arnoldi.basis) == m
+    @test arnoldi.next_vector !== nothing
+    @test size(arnoldi.hessenberg) == (m + 1, m)
+    @test arnoldi.input_norm ≈ 1.0 atol = 1e-12
+    @test all(isapprox(mps_norm(vector), 1.0; atol = 1e-10) for vector in arnoldi.basis)
+    overlaps = [mps_overlap(left, right) for left in arnoldi.basis, right in arnoldi.basis]
+    @test overlaps ≈ Matrix{ComplexF64}(LinearAlgebra.I, m, m) atol = 1e-9
+    @test maximum(abs, arnoldi.second_pass_defects) ≤ 1e-9
+
+    # The first Arnoldi relation uses only q1 and q2, both stored in `basis`.
+    reconstructed_action = mps_linear_combination(
+        arnoldi.basis[1:2],
+        arnoldi.hessenberg[1:2, 1];
+        cutoff = 0.0,
+        maxdim = 100,
+    )
+    direct_action = mps_action(hamiltonian, arnoldi.basis[1]; cutoff = 0.0, maxdim = 100)
+    relation_residual = mps_subtract_projection(
+        direct_action,
+        MPS[reconstructed_action],
+        ComplexF64[1];
+        cutoff = 0.0,
+        maxdim = 100,
+    )
+    @test mps_norm(relation_residual) ≤ 1e-9
+
+    @test_throws ArgumentError global_mps_arnoldi_basis(
+        state, hamiltonian;
+        krylovdim = 0,
+        action_cutoff = 0.0,
+        action_maxdim = 100,
+        orthogonalization_cutoff = 0.0,
+        orthogonalization_maxdim = 100,
+        breakdown_tolerance = 1e-12,
+    )
+    @test_throws ArgumentError global_mps_arnoldi_basis(
+        state, hamiltonian;
+        krylovdim = 2,
+        action_cutoff = -1e-12,
+        action_maxdim = 100,
+        orthogonalization_cutoff = 0.0,
+        orthogonalization_maxdim = 100,
+        breakdown_tolerance = 1e-12,
+    )
+end
+
 @testset "Atomic initial states and local observables" begin
     # Static Lb=10 product states only; no time evolution is performed here.
     lesser_factor = fill(0.1 + 0.2im, 2, 5)

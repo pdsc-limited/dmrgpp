@@ -9,13 +9,14 @@ include("Hamiltonian.jl")
 include("InitialState.jl")
 include("Observables.jl")
 include("MPSAlgebra.jl")
+include("Arnoldi.jl")
 include("FreeFermion.jl")
 include("Output.jl")
 
 export bath_green_greater,
     bath_green_lesser,
     bath_position,
-    benchmark_is_runnable,
+    global_mps_arnoldi_basis,    benchmark_is_runnable,
     central_impurity_position,
     central_star_order,
     cosine_ramp,
