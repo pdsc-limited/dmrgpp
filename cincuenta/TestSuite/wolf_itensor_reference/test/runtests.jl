@@ -369,6 +369,54 @@ end
     )
 end
 
+@testset "Global Krylov remote first-order amplitude" begin
+    # Lb=10 U=0 plumbing gate only. A down electron transfers from the remote
+    # left bath site at MPS position 1 to an initially-Up impurity at position
+    # 6. An occupation would change only at O(dt^2), so test this Fock-state
+    # amplitude directly at O(dt).
+    bath = factorized_bath_spec(fill(0.2 + 0.1im, 1, 5), fill(-0.1 + 0.05im, 1, 5))
+    model = siam_model_spec(0.0, bath)
+    sites = electron_sites(model)
+    initial = initial_product_mps(model, sites, :Up)
+    target_labels = initial_product_labels(model, :Up)
+    source = bath_position(model, 1)
+    target_labels[source] = :Up
+    target_labels[model.impurity_position] = :UpDn
+    target = MPS(sites, string.(target_labels))
+    hamiltonian = siam_mpo(model, sites, 1)
+    direct_matrix_element = mps_overlap(
+        target,
+        mps_action(hamiltonian, initial; cutoff = 0.0, maxdim = 1000),
+    )
+    controls = (
+        krylovdim = 5,
+        action_cutoff = 0.0,
+        action_maxdim = 1000,
+        orthogonalization_cutoff = 0.0,
+        orthogonalization_maxdim = 1000,
+        combination_cutoff = 0.0,
+        combination_maxdim = 1000,
+        breakdown_tolerance = 1e-12,
+    )
+    large_dt = 1e-3
+    small_dt = 1e-4
+    large_amplitude = mps_overlap(
+        target,
+        midpoint_global_krylov_step(initial, hamiltonian, large_dt; controls...).state,
+    )
+    small_amplitude = mps_overlap(
+        target,
+        midpoint_global_krylov_step(initial, hamiltonian, small_dt; controls...).state,
+    )
+    large_error = large_amplitude - (-im * large_dt * direct_matrix_element)
+    small_error = small_amplitude - (-im * small_dt * direct_matrix_element)
+
+    @test mps_overlap(target, initial) ≈ 0.0 atol = 1e-14
+    @test abs(direct_matrix_element) > 1e-12
+    @test small_amplitude / small_dt ≈ -im * direct_matrix_element atol = 1e-9
+    @test abs(small_error / small_dt) < 0.1 * abs(large_error / large_dt)
+end
+
 @testset "Atomic initial states and local observables" begin
     # Static Lb=10 product states only; no time evolution is performed here.
     lesser_factor = fill(0.1 + 0.2im, 2, 5)

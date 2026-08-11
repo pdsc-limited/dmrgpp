@@ -1,10 +1,11 @@
 # Global MPS Krylov midpoint propagation: design
 
 Status: the basis builder and a single midpoint-step primitive are implemented
-and tested on a static `Lb=10` model. This document specifies the independently
-testable implementation needed to reproduce the propagation class used by Wolf,
-McCulloch, and Schollwoeck. The required noninteracting acceptance tests remain
-outstanding.
+and tested on a static `Lb=10` model. The remote first-order noninteracting
+amplitude acceptance test is also complete. This document specifies the
+independently testable implementation needed to reproduce the propagation class
+used by Wolf, McCulloch, and Schollwoeck. The finite-time covariance and
+numerical-convergence acceptance tests remain outstanding.
 
 ## Why this replaces local TDVP
 
@@ -98,10 +99,12 @@ dimension, all three compression controls, and `dt` independently.
 1. **Algebraic unit tests:** explicit MPS addition/scaling/overlap, Arnoldi
    orthogonality, and a static-`Lb=10` midpoint-step norm/diagnostic test are
    complete.
-2. **Remote-amplitude test:** for `U=0`, compare a selected Fock-state
-   transition amplitude after one midpoint step with the direct MPO matrix
-   element at order `dt`.  This is more sensitive than an occupation, whose
-   leading change is order `dt^2`.
+2. **Remote-amplitude test:** complete at `Lb=10`, `U=0`. A down electron is
+   transferred from the remote left bath site to an initially-Up impurity. The
+   selected target-state amplitude agrees at order `dt` with its direct MPO
+   matrix element, and its scaled first-order error decreases under timestep
+   refinement. This is more sensitive than an occupation, whose leading
+   change is order `dt^2`.
 3. **Finite-time free-fermion test:** compare impurity occupations and double
    occupancy to `FreeFermion.jl` for the same centered-star finite bath,
    factor grid, and midpoint Hamiltonians.
