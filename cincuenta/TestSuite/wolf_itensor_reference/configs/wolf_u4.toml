@@ -1,0 +1,72 @@
+[benchmark]
+schema_version = 1
+name = "Wolf-McCulloch-Schollwoeck non-self-consistent SIAM, U=4"
+status = "contract-only"
+claim = "No numerical reproduction claim: cosine-ramp t1=0.25 is a provisional GBEK-derived engineering default, not a sourced Wolf parameter."
+
+[model]
+units = "v0 = hbar = kB = 1"
+beta = 1.0
+U = 4.0
+chemical_potential = 0.0
+particle_hole_symmetric_interaction = true
+observable = "impurity_double_occupancy"
+
+[bath]
+representation = "time_grid_factorization"
+density_of_states = "sqrt(4 - omega^2) / (2 * pi), abs(omega) <= 2"
+initial_occupied_sector = "lesser"
+initial_empty_sector = "greater"
+final_bath_potential = 0.0
+factorization = "rank-truncated PSD factorization of -im*Lambda_less and im*Lambda_greater"
+
+[[bath.discretizations]]
+Lb = 10
+lesser_rank = 5
+greater_rank = 5
+
+[[bath.discretizations]]
+Lb = 12
+lesser_rank = 6
+greater_rank = 6
+
+[[bath.discretizations]]
+Lb = 14
+lesser_rank = 7
+greater_rank = 7
+
+[[bath.discretizations]]
+Lb = 16
+lesser_rank = 8
+greater_rank = 8
+
+[[bath.discretizations]]
+Lb = 20
+lesser_rank = 10
+greater_rank = 10
+
+[[bath.discretizations]]
+Lb = 22
+lesser_rank = 11
+greater_rank = 11
+
+[time_grid]
+status = "provisional"
+ramp = "cosine: (1 - cos(pi*t/t1)) / 2 for t < t1; one thereafter"
+ramp_duration = 0.25
+ramp_duration_status = "provisional: borrowed from the independent GBEK cosine-ramp inputs; Wolf's numerical t1 remains unsourced"
+ramp_duration_source = "cincuenta/TestSuite/inputs/inputNeqAtomicLimitGBEKL3.ain"
+dt = "UNRESOLVED"
+t_max = "UNRESOLVED"
+
+[initial_state]
+status = "resolved"
+source = "Balzer et al., arXiv:1407.6578, Sec. II.C.1; local source archive in /workspace/dmrgpp_papers/mctdh impurity solver balzer et al 2015/."
+impurity_protocol = "Run pure atomic |up> and |down> impurity components and average scalar observables; d(0) = 0."
+bath_protocol = "First Lb/2 spinful bath sites doubly occupied; remaining Lb/2 empty."
+
+[future_runs]
+propagator = "midpoint_tdvp"
+nsite = 2
+truncation = "convergence sweep required"
+claim_gate = "Require resolved time_grid and initial_state plus kernel, timestep, and bond-dimension convergence."

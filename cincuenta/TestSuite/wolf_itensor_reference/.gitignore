@@ -1,0 +1,13 @@
+# Julia package/depot state generated locally.
+.julia_depot/
+
+# Project-local scratch space; never use shared /tmp for this reference.
+tmp/
+
+# Reference outputs.
+output/
+*.csv
+*.dat
+*.png
+*.pdf
+*.provenance.txt
