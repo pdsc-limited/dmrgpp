@@ -495,6 +495,100 @@ end
     end
 end
 
+@testset "Global Krylov interacting spin-average plumbing" begin
+    # Lb=10 U=4 technical gate only. The joint factorization grid supplies
+    # midpoint rows directly; both historical atomic spin components evolve
+    # independently and only scalar observables are averaged afterwards.
+    endpoints = [0.0, 0.01, 0.02]
+    grid = midpoint_factorization_grid(endpoints)
+    lesser_kernel = -im * hybridization_matrix(
+        grid.points;
+        component = :lesser,
+        t1 = 0.25,
+        intervals = 512,
+    )
+    greater_kernel = im * hybridization_matrix(
+        grid.points;
+        component = :greater,
+        t1 = 0.25,
+        intervals = 512,
+    )
+    bath = factorized_bath_spec(
+        factorize_psd(lesser_kernel; rank = 5, atol = 1e-11).factor,
+        factorize_psd(greater_kernel; rank = 5, atol = 1e-11).factor,
+    )
+    model = siam_model_spec(4.0, bath)
+    sites = electron_sites(model)
+    midpoint_hamiltonians = [
+        siam_mpo(model, sites, index) for index in grid.midpoint_indices
+    ]
+    endpoint_hamiltonians = [
+        siam_mpo(model, sites, index) for index in grid.endpoint_indices
+    ]
+    controls = (
+        krylovdim = 7,
+        action_cutoff = 0.0,
+        action_maxdim = 1000,
+        orthogonalization_cutoff = 0.0,
+        orthogonalization_maxdim = 1000,
+        combination_cutoff = 0.0,
+        combination_maxdim = 1000,
+        breakdown_tolerance = 1e-12,
+    )
+
+    function evolve_atomic_component(component)
+        states = MPS[initial_product_mps(model, sites, component)]
+        step_diagnostics = NamedTuple[]
+        for step in eachindex(midpoint_hamiltonians)
+            dt = endpoints[step + 1] - endpoints[step]
+            evolved = midpoint_global_krylov_step(
+                states[end], midpoint_hamiltonians[step], dt; controls...
+            )
+            push!(states, evolved.state)
+            push!(step_diagnostics, evolved.diagnostics)
+        end
+        return (states, step_diagnostics)
+    end
+
+    up_states, up_steps = evolve_atomic_component(:Up)
+    down_states, down_steps = evolve_atomic_component(:Dn)
+    up_diagnostics = [
+        state_diagnostics(up_states[index], endpoint_hamiltonians[index], model.impurity_position)
+        for index in eachindex(endpoints)
+    ]
+    down_diagnostics = [
+        state_diagnostics(down_states[index], endpoint_hamiltonians[index], model.impurity_position)
+        for index in eachindex(endpoints)
+    ]
+
+    @test grid.midpoint_indices == [2, 4]
+    @test length(up_states) == length(endpoints)
+    @test length(down_states) == length(endpoints)
+    @test all(diagnostics -> isapprox(diagnostics.output_norm, 1.0; atol = 1e-9), up_steps)
+    @test all(diagnostics -> isapprox(diagnostics.output_norm, 1.0; atol = 1e-9), down_steps)
+    @test all(diagnostics -> diagnostics.projected_residual ≥ 0.0, up_steps)
+    @test all(diagnostics -> diagnostics.projected_residual ≥ 0.0, down_steps)
+    for index in eachindex(endpoints)
+        up = up_diagnostics[index]
+        down = down_diagnostics[index]
+        @test up.norm ≈ 1.0 atol = 1e-9
+        @test down.norm ≈ 1.0 atol = 1e-9
+        @test up.total_particle_number ≈ 11.0 atol = 1e-9
+        @test down.total_particle_number ≈ 11.0 atol = 1e-9
+        @test up.spin_projection ≈ 0.5 atol = 1e-9
+        @test down.spin_projection ≈ -0.5 atol = 1e-9
+        @test up.impurity_nup ≈ down.impurity_ndn atol = 1e-9
+        @test up.impurity_ndn ≈ down.impurity_nup atol = 1e-9
+        @test up.impurity_double_occupancy ≈ down.impurity_double_occupancy atol = 1e-9
+        @test spin_average(up.impurity_nup, down.impurity_nup) ≈
+              spin_average(up.impurity_ndn, down.impurity_ndn) atol = 1e-9
+        @test spin_average(up.spin_projection, down.spin_projection) ≈ 0.0 atol = 1e-9
+        @test 0.0 ≤ spin_average(
+            up.impurity_double_occupancy, down.impurity_double_occupancy
+        ) ≤ 1.0
+    end
+end
+
 @testset "Global Krylov numerical convergence" begin
     # Static Lb=10 U=0 bath: every refinement evolves the identical finite
     # Hamiltonian, so this isolates propagation controls from bath fitting.
