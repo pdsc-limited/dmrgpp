@@ -123,11 +123,13 @@ dimension, all three compression controls, and `dt` independently.
    refinements retain `1e-10` observable agreement. This does not replace
    convergence studies for a time-dependent interacting calculation.
 
-5. **Interacting spin-average plumbing:** next, use the joint-grid `Lb=10`,
-   `U=4` finite bath for two short midpoint steps. Evolve the atomic `:Up` and
-   `:Dn` components separately, verify charge, component spin symmetry, norms,
-   and step diagnostics, then average only scalar observables. This is still a
-   technical integration gate, not a Wolf trajectory or comparison.
+5. **Bounded interacting trajectory:** complete as an `Lb=10`, `U=4`,
+   three-step (`t=0.06`) joint-grid technical gate. The atomic `:Up` and `:Dn`
+   components are evolved separately through direct midpoint rows, endpoint
+   records are scalar-averaged, and the test verifies charge, component spin
+   symmetry, norms, Krylov diagnostics, bond caps, and nontrivial state/local
+   evolution. It is still a bounded technical trajectory, not a Wolf
+   comparison, bath-convergence study, or late-time result.
 
 No `Lb<10` MPS input is permitted in these tests. Passing the free-fermion or
 interacting plumbing gates validates the propagator implementation only; it is

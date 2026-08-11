@@ -496,10 +496,10 @@ end
 end
 
 @testset "Global Krylov interacting spin-average plumbing" begin
-    # Lb=10 U=4 technical gate only. The joint factorization grid supplies
-    # midpoint rows directly; both historical atomic spin components evolve
-    # independently and only scalar observables are averaged afterwards.
-    endpoints = [0.0, 0.01, 0.02]
+    # Lb=10 U=4 bounded trajectory gate only. The joint factorization grid
+    # supplies all three midpoint rows directly; both historical atomic spin
+    # components evolve independently and only scalar observables are averaged.
+    endpoints = [0.0, 0.02, 0.04, 0.06]
     grid = midpoint_factorization_grid(endpoints)
     lesser_kernel = -im * hybridization_matrix(
         grid.points;
@@ -554,13 +554,18 @@ end
     )
     averaged_records = average_spin_component_records(up_result.records, down_result.records)
 
-    @test grid.midpoint_indices == [2, 4]
+    @test grid.midpoint_indices == [2, 4, 6]
     @test length(up_result.states) == length(endpoints)
     @test length(down_result.states) == length(endpoints)
     @test all(diagnostics -> isapprox(diagnostics.output_norm, 1.0; atol = 1e-9), up_result.step_diagnostics)
     @test all(diagnostics -> isapprox(diagnostics.output_norm, 1.0; atol = 1e-9), down_result.step_diagnostics)
     @test all(diagnostics -> diagnostics.projected_residual ≥ 0.0, up_result.step_diagnostics)
-    @test all(diagnostics -> diagnostics.projected_residual ≥ 0.0, down_result.step_diagnostics)
+    @test all(diagnostics -> isfinite(diagnostics.projected_residual), up_result.step_diagnostics)
+    @test all(diagnostics -> isfinite(diagnostics.projected_residual), down_result.step_diagnostics)
+    @test all(
+        diagnostics -> diagnostics.accepted_dimension ≤ controls.krylovdim,
+        vcat(up_result.step_diagnostics, down_result.step_diagnostics),
+    )
     @test isempty(validate_trajectory_records(averaged_records))
     @test [record.time for record in averaged_records] == endpoints
     for index in eachindex(endpoints)
@@ -583,8 +588,14 @@ end
         @test average.impurity_nup ≈ average.impurity_ndn atol = 1e-9
         @test average.spin_projection ≈ 0.0 atol = 1e-9
         @test average.max_link_dimension == max(up.max_link_dimension, down.max_link_dimension)
+        @test average.max_link_dimension ≤ controls.combination_maxdim
         @test 0.0 ≤ average.impurity_double_occupancy ≤ 1.0
     end
+    # The overlap magnitude discards an arbitrary global phase. Its decrease,
+    # together with nonzero final double occupancy, confirms this is not a
+    # repeated endpoint-record measurement of the initial product state.
+    @test abs(mps_overlap(up_result.states[1], up_result.states[end])) < 1 - 1e-8
+    @test averaged_records[end].diagnostics.impurity_double_occupancy > 1e-10
     @test_throws ArgumentError average_spin_component_records(
         up_result.records, down_result.records[1:end-1]
     )
