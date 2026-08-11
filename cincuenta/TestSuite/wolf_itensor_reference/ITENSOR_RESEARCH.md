@@ -26,10 +26,10 @@ an `OpSum` and `MPO(os, sites)`.  An MPO may contain arbitrary impurity--bath
 two-site terms, so a star geometry needs no new MPO representation.
 
 Official MPS time-evolution material demonstrates TEBD via a gate list and
-`apply(gates, psi; cutoff)`.  It states that `apply` handles
-non-nearest-neighbor gates, which is relevant to a star SIAM.  TDVP is also
-part of ITensorMPS and needs evaluation against TEBD for the time-dependent
-star Hamiltonian.
+`apply(gates, psi; cutoff)`, including non-nearest-neighbor gates.  This is
+useful background only: the current reference selects a Wolf-style global MPS
+Krylov propagator. Local TDVP is shelved after failing its centered-star
+noninteracting validation, and TEBD is deferred.
 
 Sources:
 

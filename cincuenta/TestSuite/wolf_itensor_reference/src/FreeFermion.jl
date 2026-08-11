@@ -91,8 +91,8 @@ end
 """Propagate a density through caller-supplied midpoint matrices.
 
 The returned `densities` include a copy of the initial density followed by one
-exact one-particle result per endpoint interval. This mirrors
-`run_midpoint_steps` without constructing an MPS or retaining mutable state.
+exact one-particle result per endpoint interval. It does not construct an MPS
+or retain mutable state.
 """
 function run_free_midpoint_steps(
         initial_density::AbstractMatrix,

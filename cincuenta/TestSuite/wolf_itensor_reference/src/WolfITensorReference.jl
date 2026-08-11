@@ -8,8 +8,6 @@ include("Model.jl")
 include("Hamiltonian.jl")
 include("InitialState.jl")
 include("Observables.jl")
-include("Propagation.jl")
-include("Trajectory.jl")
 include("FreeFermion.jl")
 include("Output.jl")
 
@@ -22,7 +20,6 @@ export bath_green_greater,
     cosine_ramp,
     couplings_at,
     electron_sites,
-    endpoint_record,
     factorize_psd,
     factorized_bath_spec,
     factor_rows,
@@ -40,17 +37,13 @@ export bath_green_greater,
     initial_product_mps,
     integrate_semicircle,
     midpoint_factorization_grid,
-    midpoint_tdvp_observed_step,
-    midpoint_tdvp_step,
     load_benchmark_config,
     semicircular_dos,
-    midpoint_trajectory_step,
     one_particle_density_diagnostics,
     run_free_midpoint_steps,
     siam_model_spec,
     siam_mpo,
     siam_opsum,
-    run_midpoint_steps,
     read_metadata_toml,
     read_trajectory_csv,
     spin_average,

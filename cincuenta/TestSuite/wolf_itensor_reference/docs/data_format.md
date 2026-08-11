@@ -25,7 +25,8 @@ provenance explicitly, including at minimum:
 - Julia, ITensors, and ITensorMPS versions;
 - `Lb`, interaction, beta, and the initial-state convention;
 - endpoint grid and joint-factorization rank/error diagnostics;
-- TDVP time step, `nsite`, cutoff, max bond dimension, and Krylov settings;
+- global-Krylov time step, Krylov dimension/residual, MPS compression cutoff,
+  and maximum bond dimension;
 - thread/host information and run completion status.
 
 The serializer does not infer any of these values from mutable process state.

@@ -1,4 +1,4 @@
-# Noninteracting finite-bath validation
+# Shelved local-TDVP experiment
 
 This validation is a short, `Lb=10` **technical check**, not a Wolf benchmark
 result and not evidence of bath-size convergence.  Its exact reference is a
@@ -50,11 +50,12 @@ For a midpoint interval of duration `dt`, its exact update is
             e^{+i h(t+dt/2)dt}.
 \]
 
-A future MPS comparison must use the same caller-selected midpoint coupling
-row, finite-bath factorization, and atomic `|up>` state.  Thus a disagreement
-will test implementation details—fermionic signs, physical-site ordering,
-hopping conjugation, midpoint timing, propagator behavior, or observable
-measurement—rather than a difference in bath representation.
+The reference now selects a global MPS Krylov propagator, following Wolf et
+al. This record is retained because the same exact covariance calculation will
+be its first noninteracting acceptance test. Any later TDVP experiment must use
+the same caller-selected midpoint coupling row, finite-bath factorization, and
+atomic `|up>` state; it may not be treated as an approved propagator merely
+because it has an MPO API.
 
 ## What is compared
 
@@ -77,6 +78,6 @@ operator and state conventions.
 ## Limits
 
 This check validates the implementation only for the supplied finite bath and
-short interval.  It cannot validate interacting (`U=4` or `U=10`) dynamics,
+short interval. It cannot validate interacting (`U=4` or `U=10`) dynamics,
 the provisional ramp duration, bath-factorization convergence, late-time
 recurrences, or agreement with Wolf et al.'s figure.

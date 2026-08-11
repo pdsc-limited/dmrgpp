@@ -78,9 +78,11 @@ propagator endpoints and their midpoints.  The two kernels are factorized once
 on that joint grid, and a midpoint coupling is read from its corresponding
 factor row directly.  The implementation must not independently factorize
 endpoint and midpoint grids, nor silently interpolate rows from independent
-factorizations: their column gauges need not agree.  The planned uniform grid
+factorizations: their column gauges need not agree. The planned uniform grid
 has equal quadrature weights; a nonuniform grid requires an explicit weighted
-factorization and validation of that changed fitting norm.
+factorization and validation of that changed fitting norm. The selected
+propagator is a global MPS Krylov approximation to the explicit midpoint MPO,
+as used by Wolf et al.; local TDVP and TEBD are deferred.
 
 ## Allowed sizes and claim gates
 

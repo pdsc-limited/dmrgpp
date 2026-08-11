@@ -66,7 +66,7 @@ impurity_protocol = "Run pure atomic |up> and |down> impurity components and ave
 bath_protocol = "First Lb/2 spinful bath sites doubly occupied; remaining Lb/2 empty."
 
 [future_runs]
-propagator = "midpoint_tdvp"
-nsite = 2
+propagator = "global_mps_krylov"
+propagator_status = "selected for implementation: follow Wolf et al.'s global MPS Krylov approach; local TDVP and TEBD are deferred"
 truncation = "convergence sweep required"
-claim_gate = "Require resolved time_grid and initial_state plus kernel, timestep, and bond-dimension convergence."
+claim_gate = "Require resolved time_grid and initial_state plus kernel, Krylov residual, timestep, and bond-dimension convergence."

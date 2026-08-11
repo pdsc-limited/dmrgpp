@@ -37,9 +37,10 @@ of the `Lb = 20` and `22` bath discretizations through approximately
    and validate their reconstruction against the continuum kernels above.
    This product-state bath is a dilation of the stated `T=1` hybridization,
    not a zero-temperature surrogate.
-2. Resolve and implement the complete initial-state protocol and the
-   time-dependent star Hamiltonian.  Do not run an MPS calculation with fewer
-   than `Lb=8`, and do not make `Lb<8` an application/regression input at all.
+2. Resolve and implement the complete initial-state protocol, time-dependent
+   star Hamiltonian, and Wolf-style global MPS Krylov propagator. Local TDVP
+   and TEBD are deferred. Do not run an MPS calculation with fewer than `Lb=8`,
+   and do not make `Lb<8` an application/regression input at all.
    These bath sizes are traps: the paper publishes no results below `Lb=10`,
    so they cannot be treated as useful physics or implementation targets.
 3. Make the first physics comparison at bath sizes large enough to expose the
