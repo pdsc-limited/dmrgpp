@@ -10,6 +10,7 @@ include("InitialState.jl")
 include("Observables.jl")
 include("Propagation.jl")
 include("Trajectory.jl")
+include("FreeFermion.jl")
 include("Output.jl")
 
 export bath_green_greater,
@@ -25,6 +26,8 @@ export bath_green_greater,
     factorize_psd,
     factorized_bath_spec,
     factor_rows,
+    free_midpoint_step,
+    free_one_particle_hamiltonian,
     fermi,
     hybridization_greater,
     hybridization_lesser,
@@ -32,6 +35,7 @@ export bath_green_greater,
     hermitian_psd_diagnostics,
     impurity_double_occupancy,
     impurity_occupations,
+    initial_one_particle_density,
     initial_product_labels,
     initial_product_mps,
     integrate_semicircle,
@@ -41,6 +45,8 @@ export bath_green_greater,
     load_benchmark_config,
     semicircular_dos,
     midpoint_trajectory_step,
+    one_particle_density_diagnostics,
+    run_free_midpoint_steps,
     siam_model_spec,
     siam_mpo,
     siam_opsum,

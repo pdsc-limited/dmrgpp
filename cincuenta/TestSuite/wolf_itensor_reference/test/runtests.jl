@@ -494,6 +494,37 @@ end
     rm(scratch; recursive = true)
 end
 
+@testset "Exact free-fermion covariance primitives" begin
+    bath = factorized_bath_spec(fill(0.2 + 0.1im, 2, 5), fill(-0.1 + 0.2im, 2, 5))
+    model = siam_model_spec(0.0, bath)
+    hamiltonian = free_one_particle_hamiltonian(model, 1)
+    up_density = initial_one_particle_density(model, :Up, :Up)
+    down_density = initial_one_particle_density(model, :Up, :Dn)
+
+    @test hamiltonian ≈ hamiltonian' atol = 1e-12
+    @test up_density[model.impurity_position, model.impurity_position] == 1.0
+    @test down_density[model.impurity_position, model.impurity_position] == 0.0
+    @test tr(up_density) == 6.0
+    @test tr(down_density) == 5.0
+    propagated = free_midpoint_step(down_density, hamiltonian, 0.02)
+    @test tr(propagated) ≈ 5.0 atol = 1e-12
+    @test propagated ≈ propagated' atol = 1e-12
+    trajectory = run_free_midpoint_steps(
+        down_density,
+        [0.0, 0.02, 0.04],
+        [hamiltonian, hamiltonian],
+    )
+    @test trajectory.times == [0.0, 0.02, 0.04]
+    @test length(trajectory.densities) == 3
+    @test all(isapprox(tr(density), 5.0; atol = 1e-12) for density in trajectory.densities)
+    @test one_particle_density_diagnostics(
+        trajectory.densities[end], model.impurity_position
+    ).particle_number_imaginary_part ≈ 0.0 atol = 1e-12
+    @test_throws ArgumentError free_one_particle_hamiltonian(siam_model_spec(4.0, bath), 1)
+    @test_throws ArgumentError initial_one_particle_density(model, :Up, :bad_spin)
+    @test_throws ArgumentError free_midpoint_step(down_density, [1.0 1.0; 0.0 1.0], 0.02)
+end
+
 @testset "Technical integration-test program" begin
     scratch = mktempdir(joinpath(ROOT, "tmp"))
     output_directory = joinpath(scratch, "output")
