@@ -495,6 +495,100 @@ end
     end
 end
 
+@testset "Global Krylov numerical convergence" begin
+    # Static Lb=10 U=0 bath: every refinement evolves the identical finite
+    # Hamiltonian, so this isolates propagation controls from bath fitting.
+    # This is a technical acceptance gate, not a Wolf trajectory or a bath
+    # convergence claim.
+    bath = factorized_bath_spec(
+        fill(0.2 + 0.1im, 1, 5),
+        fill(-0.1 + 0.05im, 1, 5),
+    )
+    model = siam_model_spec(0.0, bath)
+    sites = electron_sites(model)
+    hamiltonian = siam_mpo(model, sites, 1)
+    one_particle_hamiltonian = free_one_particle_hamiltonian(model, 1)
+    initial_up = initial_one_particle_density(model, :Up, :Up)
+    initial_down = initial_one_particle_density(model, :Up, :Dn)
+    exact_up = free_midpoint_step(initial_up, one_particle_hamiltonian, 0.02)
+    exact_down = free_midpoint_step(initial_down, one_particle_hamiltonian, 0.02)
+    exact_observables = (
+        nup = one_particle_density_diagnostics(
+            exact_up, model.impurity_position
+        ).impurity_occupation,
+        ndn = one_particle_density_diagnostics(
+            exact_down, model.impurity_position
+        ).impurity_occupation,
+    )
+    exact_double_occupancy = exact_observables.nup * exact_observables.ndn
+    reference_controls = (
+        krylovdim = 8,
+        action_cutoff = 0.0,
+        action_maxdim = 1000,
+        orthogonalization_cutoff = 0.0,
+        orthogonalization_maxdim = 1000,
+        combination_cutoff = 0.0,
+        combination_maxdim = 1000,
+        breakdown_tolerance = 1e-12,
+    )
+
+    function evolve_static_global_krylov(controls, step_count)
+        state = initial_product_mps(model, sites, :Up)
+        dt = 0.02 / step_count
+        for _ in 1:step_count
+            state = midpoint_global_krylov_step(state, hamiltonian, dt; controls...).state
+        end
+        occupations = impurity_occupations(state, model.impurity_position)
+        return (
+            nup = occupations.nup,
+            ndn = occupations.ndn,
+            double_occupancy = occupations.double_occupancy,
+        )
+    end
+
+    function observable_error(observables)
+        return maximum(
+            abs.(
+                (
+                    observables.nup - exact_observables.nup,
+                    observables.ndn - exact_observables.ndn,
+                    observables.double_occupancy - exact_double_occupancy,
+                ),
+            ),
+        )
+    end
+
+    # The fine reference independently tightens timestep and Krylov controls.
+    # Compression variants use the coarser single step to keep this Lb=10
+    # technical gate bounded while changing exactly one control family.
+    fine = evolve_static_global_krylov(reference_controls, 2)
+    coarse = evolve_static_global_krylov(reference_controls, 1)
+    lower_krylov = evolve_static_global_krylov(merge(reference_controls, (krylovdim = 5,)), 2)
+    tighter_action = evolve_static_global_krylov(
+        merge(reference_controls, (action_maxdim = 100,)), 1
+    )
+    tighter_orthogonalization = evolve_static_global_krylov(
+        merge(reference_controls, (orthogonalization_maxdim = 100,)), 1
+    )
+    tighter_combination = evolve_static_global_krylov(
+        merge(reference_controls, (combination_maxdim = 100,)), 1
+    )
+
+    fine_error = observable_error(fine)
+    coarse_error = observable_error(coarse)
+    lower_krylov_error = observable_error(lower_krylov)
+    action_error = observable_error(tighter_action)
+    orthogonalization_error = observable_error(tighter_orthogonalization)
+    combination_error = observable_error(tighter_combination)
+
+    @test fine_error ≤ 1e-10
+    @test fine_error ≤ coarse_error + 1e-12
+    @test fine_error ≤ lower_krylov_error + 1e-12
+    @test action_error ≤ 1e-10
+    @test orthogonalization_error ≤ 1e-10
+    @test combination_error ≤ 1e-10
+end
+
 @testset "Atomic initial states and local observables" begin
     # Static Lb=10 product states only; no time evolution is performed here.
     lesser_factor = fill(0.1 + 0.2im, 2, 5)

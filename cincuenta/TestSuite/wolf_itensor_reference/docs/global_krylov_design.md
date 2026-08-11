@@ -1,11 +1,11 @@
 # Global MPS Krylov midpoint propagation: design
 
-Status: the basis builder and a single midpoint-step primitive are implemented
-and tested on a static `Lb=10` model. The remote first-order noninteracting
-amplitude acceptance test is also complete. This document specifies the
+Status: the basis builder, a single midpoint-step primitive, the remote
+first-order noninteracting amplitude gate, and the finite-time covariance gate
+are implemented and tested at `Lb=10`. This document specifies the
 independently testable implementation needed to reproduce the propagation class
-used by Wolf, McCulloch, and Schollwoeck. The finite-time covariance and
-numerical-convergence acceptance tests remain outstanding.
+used by Wolf, McCulloch, and Schollwoeck. Numerical-convergence validation is
+now implemented as a static finite-bath technical gate.
 
 ## Why this replaces local TDVP
 
@@ -113,9 +113,15 @@ dimension, all three compression controls, and `dt` independently.
    spin-sector product under `U=0`, the checked double occupancy is
    `nup_imp * ndn_imp`. This is a plumbing test, not a bath-convergence or
    Wolf-result claim.
-4. **Numerical convergence:** require stable agreement under simultaneous
-   `dt`, Krylov-dimension, and MPS-compression refinement before moving to
-   `U=4` or `U=10`.
+4. **Numerical convergence:** complete as an `Lb=10`, `U=0`, static-bath
+   technical gate. Holding the same finite MPO fixed avoids conflating
+   timestep refinement with separately factorized baths. It compares the
+   exact one-particle observables at `t=0.02` with a fine two-step,
+   dimension-eight, zero-cutoff/maxdim-1000 reference; timestep and Krylov
+   dimensions are separately relaxed, and action, orthogonalization, and
+   combination maximum dimensions are each changed independently. All tested
+   refinements retain `1e-10` observable agreement. This does not replace
+   convergence studies for a time-dependent interacting calculation.
 
 No `Lb<10` MPS input is permitted in these tests.  Passing the free-fermion
 gate validates the propagator plumbing only; it is not a Wolf benchmark or a
