@@ -417,6 +417,84 @@ end
     @test abs(small_error / small_dt) < 0.1 * abs(large_error / large_dt)
 end
 
+@testset "Global Krylov finite-time free-fermion covariance" begin
+    # Lb=10 U=0 plumbing gate only. The joint endpoint/midpoint factorization
+    # supplies the two midpoint MPO rows directly; no factor interpolation is
+    # used. For this product Fock state, independent up/down free evolution
+    # gives d_imp(t) = nup_imp(t) * ndn_imp(t).
+    endpoints = [0.0, 0.01, 0.02]
+    grid = midpoint_factorization_grid(endpoints)
+    lesser_kernel = -im * hybridization_matrix(
+        grid.points;
+        component = :lesser,
+        t1 = 0.25,
+        intervals = 512,
+    )
+    greater_kernel = im * hybridization_matrix(
+        grid.points;
+        component = :greater,
+        t1 = 0.25,
+        intervals = 512,
+    )
+    bath = factorized_bath_spec(
+        factorize_psd(lesser_kernel; rank = 5, atol = 1e-11).factor,
+        factorize_psd(greater_kernel; rank = 5, atol = 1e-11).factor,
+    )
+    model = siam_model_spec(0.0, bath)
+    sites = electron_sites(model)
+    midpoint_hamiltonians = [
+        siam_mpo(model, sites, index) for index in grid.midpoint_indices
+    ]
+    one_particle_hamiltonians = [
+        free_one_particle_hamiltonian(model, index) for index in grid.midpoint_indices
+    ]
+    controls = (
+        krylovdim = 7,
+        action_cutoff = 0.0,
+        action_maxdim = 1000,
+        orthogonalization_cutoff = 0.0,
+        orthogonalization_maxdim = 1000,
+        combination_cutoff = 0.0,
+        combination_maxdim = 1000,
+        breakdown_tolerance = 1e-12,
+    )
+    exact_up = run_free_midpoint_steps(
+        initial_one_particle_density(model, :Up, :Up),
+        endpoints,
+        one_particle_hamiltonians,
+    )
+    exact_down = run_free_midpoint_steps(
+        initial_one_particle_density(model, :Up, :Dn),
+        endpoints,
+        one_particle_hamiltonians,
+    )
+    mps_states = MPS[initial_product_mps(model, sites, :Up)]
+    for step in eachindex(midpoint_hamiltonians)
+        dt = endpoints[step + 1] - endpoints[step]
+        push!(
+            mps_states,
+            midpoint_global_krylov_step(
+                mps_states[end], midpoint_hamiltonians[step], dt; controls...
+            ).state,
+        )
+    end
+
+    @test grid.midpoint_indices == [2, 4]
+    @test length(mps_states) == length(endpoints)
+    for index in eachindex(endpoints)
+        mps_impurity = impurity_occupations(mps_states[index], model.impurity_position)
+        up = one_particle_density_diagnostics(
+            exact_up.densities[index], model.impurity_position
+        ).impurity_occupation
+        down = one_particle_density_diagnostics(
+            exact_down.densities[index], model.impurity_position
+        ).impurity_occupation
+        @test mps_impurity.nup ≈ up atol = 1e-10
+        @test mps_impurity.ndn ≈ down atol = 1e-10
+        @test mps_impurity.double_occupancy ≈ up * down atol = 1e-10
+    end
+end
+
 @testset "Atomic initial states and local observables" begin
     # Static Lb=10 product states only; no time evolution is performed here.
     lesser_factor = fill(0.1 + 0.2im, 2, 5)

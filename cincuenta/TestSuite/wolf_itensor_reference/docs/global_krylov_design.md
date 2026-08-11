@@ -105,9 +105,14 @@ dimension, all three compression controls, and `dt` independently.
    matrix element, and its scaled first-order error decreases under timestep
    refinement. This is more sensitive than an occupation, whose leading
    change is order `dt^2`.
-3. **Finite-time free-fermion test:** compare impurity occupations and double
-   occupancy to `FreeFermion.jl` for the same centered-star finite bath,
-   factor grid, and midpoint Hamiltonians.
+3. **Finite-time free-fermion test:** complete at `Lb=10`, `U=0`, over two
+   explicit intervals. A joint endpoint/midpoint factorization supplies each
+   midpoint row directly. The global-MPS Krylov impurity occupations agree with
+   independent `FreeFermion.jl` covariance propagation for the same finite
+   bath and midpoint matrices. Since the `:Up` product preparation is a
+   spin-sector product under `U=0`, the checked double occupancy is
+   `nup_imp * ndn_imp`. This is a plumbing test, not a bath-convergence or
+   Wolf-result claim.
 4. **Numerical convergence:** require stable agreement under simultaneous
    `dt`, Krylov-dimension, and MPS-compression refinement before moving to
    `U=4` or `U=10`.
