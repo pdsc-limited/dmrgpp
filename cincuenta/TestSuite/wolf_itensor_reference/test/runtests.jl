@@ -494,6 +494,28 @@ end
     rm(scratch; recursive = true)
 end
 
+@testset "Technical integration-test program" begin
+    scratch = mktempdir(joinpath(ROOT, "tmp"))
+    output_directory = joinpath(scratch, "output")
+    program = joinpath(ROOT, "bin", "wolf_integration_test.jl")
+    command = `$(Base.julia_cmd()) --project=$ROOT $program --config $(joinpath(ROOT, "configs", "wolf_u4.toml")) --out $output_directory`
+    try
+        run(command)
+        table = read_trajectory_csv(joinpath(output_directory, "trajectory.csv"))
+        metadata = read_metadata_toml(joinpath(output_directory, "metadata.toml"))
+        @test table.time == [0.0, 0.02, 0.04]
+        @test all(table.norm .≈ 1.0)
+        @test all(table.total_particle_number .≈ 11.0)
+        @test metadata["program"] == "wolf_integration_test"
+        @test metadata["program_status"] ==
+              "technical integration test; not a Wolf benchmark result"
+        @test metadata["bath"]["Lb"] == 10
+        @test metadata["completion_status"] == "completed"
+    finally
+        rm(scratch; recursive = true, force = true)
+    end
+end
+
 @testset "Wolf benchmark configuration rejects invalid bath size" begin
     config = load_benchmark_config(joinpath(ROOT, "configs", "wolf_u4.toml"))
     config["bath"]["discretizations"][1]["Lb"] = 8
