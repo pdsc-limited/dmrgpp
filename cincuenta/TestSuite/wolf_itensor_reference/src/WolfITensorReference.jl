@@ -8,6 +8,7 @@ include("Model.jl")
 include("Hamiltonian.jl")
 include("InitialState.jl")
 include("Observables.jl")
+include("MPSAlgebra.jl")
 include("FreeFermion.jl")
 include("Output.jl")
 
@@ -37,6 +38,13 @@ export bath_green_greater,
     initial_product_mps,
     integrate_semicircle,
     midpoint_factorization_grid,
+    mps_action,
+    mps_basis_overlaps,
+    mps_linear_combination,
+    mps_norm,
+    mps_overlap,
+    mps_subtract_projection,
+    normalized_mps,
     load_benchmark_config,
     semicircular_dos,
     one_particle_density_diagnostics,

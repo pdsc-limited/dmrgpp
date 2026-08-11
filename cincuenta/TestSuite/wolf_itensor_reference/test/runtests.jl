@@ -209,6 +209,52 @@ end
     @test inner(product_state', hamiltonian, product_state; make_inds_match = false) ≈ -1.0 atol = 1e-12
 end
 
+@testset "Explicit MPS Krylov algebra" begin
+    # Static Lb=10 algebra checks only; this is not a propagation trajectory.
+    bath = factorized_bath_spec(fill(0.2 + 0.1im, 1, 5), fill(-0.1 + 0.05im, 1, 5))
+    model = siam_model_spec(4.0, bath)
+    sites = electron_sites(model)
+    state = initial_product_mps(model, sites, :Up)
+    hamiltonian = siam_mpo(model, sites, 1)
+
+    @test mps_norm(state) ≈ 1.0 atol = 1e-12
+    normalized = normalized_mps(2.0 * state)
+    @test mps_norm(normalized) ≈ 1.0 atol = 1e-12
+    @test abs(mps_overlap(state, normalized)) ≈ 1.0 atol = 1e-12
+
+    action = mps_action(hamiltonian, state; cutoff = 0.0, maxdim = 100)
+    @test mps_overlap(state, action) ≈ -1.0 atol = 1e-12
+    @test mps_norm(action) > 1.0
+
+    combination = mps_linear_combination(
+        MPS[state, action],
+        ComplexF64[1, im];
+        cutoff = 0.0,
+        maxdim = 100,
+    )
+    @test mps_overlap(state, combination) ≈ 1.0 - im atol = 1e-12
+
+    projection = mps_overlap(state, action)
+    residual = mps_subtract_projection(
+        action,
+        MPS[state],
+        ComplexF64[projection];
+        cutoff = 0.0,
+        maxdim = 100,
+    )
+    @test abs(mps_overlap(state, residual)) ≤ 1e-10
+    @test mps_norm(residual) > 0.0
+    @test mps_basis_overlaps(MPS[state], action) == ComplexF64[projection]
+
+    @test_throws ArgumentError mps_action(hamiltonian, state; cutoff = -1e-12, maxdim = 100)
+    @test_throws ArgumentError mps_linear_combination(
+        MPS[state], ComplexF64[]; cutoff = 0.0, maxdim = 100
+    )
+    @test_throws ArgumentError mps_subtract_projection(
+        action, MPS[state], ComplexF64[]; cutoff = 0.0, maxdim = 100
+    )
+end
+
 @testset "Atomic initial states and local observables" begin
     # Static Lb=10 product states only; no time evolution is performed here.
     lesser_factor = fill(0.1 + 0.2im, 2, 5)
