@@ -15,13 +15,13 @@ particle-hole fluctuation over the tested two steps.  In contrast, the
 nearest-neighbor up-spin process from the impurity into the first empty bath
 site on its right did evolve.
 
-This is a two-site TDVP tangent-space/projector limitation for this long-range
-star ordering, not evidence that the MPO term is absent: a direct MPO matrix
-element test is nonzero.  Raising `maxdim`, setting the cutoff to zero, and
-increasing Krylov dimension did not change the observation.  Therefore the
-centered-star TDVP propagator is **not validated for production use**.  The
-next propagator decision must be made before this document's proposed MPS
-comparison becomes an acceptance test.
+This is consistent with a two-site TDVP tangent-space/projector limitation
+for this long-range star ordering, not evidence that the MPO term is absent: a
+direct MPO matrix element test is nonzero. Raising `maxdim`, setting the
+cutoff to zero, and increasing the local Krylov dimension did not change the
+observation. The centered-star TDVP propagator is therefore **not validated
+for production use**. A controlled ordering/basis-expansion test is still
+needed before calling this mechanism proven or discarding every TDVP variant.
 
 ## Why this is independent
 
