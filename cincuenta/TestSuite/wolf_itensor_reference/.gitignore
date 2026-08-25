@@ -4,6 +4,11 @@
 # Project-local scratch space; never use shared /tmp for this reference.
 tmp/
 
+# UV/Python environment and bytecode generated locally.
+.venv/
+__pycache__/
+*.py[cod]
+
 # Reference outputs.
 output/
 *.csv

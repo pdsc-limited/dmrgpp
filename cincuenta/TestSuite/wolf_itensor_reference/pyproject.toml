@@ -1,0 +1,13 @@
+[project]
+name = "wolf-itensor-analysis"
+version = "0.1.0"
+description = "Reproducible analysis and plotting tools for the Wolf ITensor reference"
+requires-python = ">=3.11"
+dependencies = [
+  "matplotlib>=3.10,<3.11",
+  "numpy>=2.3,<2.4",
+  "pypdf>=6,<7",
+]
+
+[tool.uv]
+package = false
