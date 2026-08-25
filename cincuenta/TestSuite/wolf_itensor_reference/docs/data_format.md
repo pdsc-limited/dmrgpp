@@ -24,12 +24,22 @@ provenance explicitly, including at minimum:
 - input config contents and config path;
 - Julia, ITensors, and ITensorMPS versions;
 - `Lb`, interaction, beta, and the initial-state convention;
-- endpoint grid and joint-factorization rank/error diagnostics;
+- endpoint grid, causal-factorization rank/error diagnostics, particle-hole
+  pairing, and midpoint interpolation convention;
 - global-Krylov time step, Krylov dimension/residual, MPS compression cutoff,
   and maximum bond dimension;
 - thread/host information and run completion status.
 
 The serializer does not infer any of these values from mutable process state.
+
+## `checkpoint.h5`
+
+Checkpoint schema version 1 stores both atomic spin-component MPS states, the
+completed endpoint step, maximum projected Krylov residual, complete endpoint
+grid, complete interleaved causal coupling matrix, and an exact numerical-run
+signature. Writes use a same-directory temporary HDF5 file followed by an
+atomic rename. A restart rejects mismatched grids, couplings, signatures, or
+site indices before propagation.
 
 ## Endpoint-record ownership
 

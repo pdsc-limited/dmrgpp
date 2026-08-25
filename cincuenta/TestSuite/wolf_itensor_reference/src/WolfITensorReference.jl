@@ -3,6 +3,7 @@ module WolfITensorReference
 include("BenchmarkConfig.jl")
 include("Hybridization.jl")
 include("BathFactorization.jl")
+include("CausalCholesky.jl")
 include("TimeGrid.jl")
 include("Model.jl")
 include("Hamiltonian.jl")
@@ -14,6 +15,7 @@ include("GlobalKrylov.jl")
 include("EndpointRecords.jl")
 include("FreeFermion.jl")
 include("Output.jl")
+include("Checkpoint.jl")
 
 export bath_green_greater,
     bath_green_lesser,
@@ -26,9 +28,11 @@ export bath_green_greater,
     benchmark_is_runnable,
     central_impurity_position,
     central_star_order,
+    causal_midpoint_factor_rows,
     cosine_ramp,
     couplings_at,
     electron_sites,
+    factorize_causal_cholesky,
     factorize_psd,
     factorized_bath_spec,
     factor_rows,
@@ -63,6 +67,7 @@ export bath_green_greater,
     siam_opsum,
     read_metadata_toml,
     read_trajectory_csv,
+    read_wolf_checkpoint,
     spin_average,
     TRAJECTORY_COLUMNS,
     TRAJECTORY_SCHEMA_VERSION,
@@ -70,6 +75,8 @@ export bath_green_greater,
     validate_trajectory_records,
     write_metadata_toml,
     write_trajectory_csv,
+    write_wolf_checkpoint,
+    WOLF_CHECKPOINT_SCHEMA_VERSION,
     state_diagnostics,
     validate_benchmark_config
 

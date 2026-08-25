@@ -18,7 +18,7 @@ density_of_states = "sqrt(4 - omega^2) / (2 * pi), abs(omega) <= 2"
 initial_occupied_sector = "lesser"
 initial_empty_sector = "greater"
 final_bath_potential = 0.0
-factorization = "rank-truncated PSD factorization of -im*Lambda_less and im*Lambda_greater"
+factorization = "causal optimized low-rank Cholesky of -im*Lambda_less; particle-hole-paired greater couplings"
 
 [[bath.discretizations]]
 Lb = 10

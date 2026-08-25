@@ -67,22 +67,30 @@ greater kernels.  A factorized occupied/empty product state is *not* a
 zero-temperature replacement: its finite-temperature content is in the
 factorized kernels and must be checked by reconstructing them.
 
-A direct spectral quadrature is permitted only as a later, independent
-reference.  Equal-size agreement with such an ED bath is not evidence of
-convergence to this benchmark.
+The production construction is the causal optimized low-rank Cholesky
+algorithm of Gramsch et al., PRB **88**, 235106 (2013), Eqs. 56--63. Every new
+factor row uses only the target-kernel prefix available through that time and
+all previously constructed rows. Extending `tmax` must therefore leave every
+existing factor row exactly unchanged. At particle-hole symmetry,
+`K^> = conj(K^<)`; the empty-sector couplings are constructed as the exact
+complex conjugates of the occupied-sector couplings rather than by an
+independent, gauge-ambiguous factorization.
+
+A global spectral factorization or direct spectral quadrature is permitted
+only as an independent short-time diagnostic. Equal-size agreement with such
+an ED bath is not evidence of convergence to this benchmark.
 
 ### Midpoint convention
 
-For midpoint time propagation, the factorization grid contains both the
-propagator endpoints and their midpoints.  The two kernels are factorized once
-on that joint grid, and a midpoint coupling is read from its corresponding
-factor row directly.  The implementation must not independently factorize
-endpoint and midpoint grids, nor silently interpolate rows from independent
-factorizations: their column gauges need not agree. The planned uniform grid
-has equal quadrature weights; a nonuniform grid requires an explicit weighted
-factorization and validation of that changed fitting norm. The selected
-propagator is a global MPS Krylov approximation to the explicit midpoint MPO,
-as used by Wolf et al.; local TDVP and TEBD are deferred.
+The causal Cholesky decomposition produces endpoint couplings. For interval
+`[t_n,t_{n+1}]`, form a natural cubic spline using only endpoint rows available
+through `t_{n+1}` and retain that interval's midpoint value. Future endpoint
+rows must not change a midpoint Hamiltonian already used. This causal-prefix
+spline is our explicit interpretation of Wolf et al.'s stated “standard spline
+interpolation”; their source does not specify its boundary convention.
+
+The selected propagator is a global MPS Krylov approximation to the explicit
+midpoint MPO, as used by Wolf et al.; local TDVP and TEBD are deferred.
 
 ## Allowed sizes and claim gates
 
@@ -93,8 +101,8 @@ comparison target is `20, 22`.  The runner must reject smaller sizes.
 
 No result may be called a reproduction until all of the following hold:
 
-1. the `K^<` and `K^>` reconstruction errors and discarded spectral weights
-   are recorded for every `Lb` and time grid;
+1. the `K^<` and `K^>` causal-factor reconstruction errors are recorded for
+   every `Lb` and time grid, and factor/midpoint prefix invariance is tested;
 2. the source of the numerical ramp duration `t1` is recorded;
 3. the impurity initial-state protocol is recorded with its source evidence;
 4. timestep and bond-dimension/cutoff convergence are documented; and

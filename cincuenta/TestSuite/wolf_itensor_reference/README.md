@@ -32,9 +32,11 @@ of the `Lb = 20` and `22` bath discretizations through approximately
 
 ## Staged implementation
 
-1. Construct the paper-style finite star bath on a real-time grid: factor
-   `-i Lambda^<` and `i Lambda^>` into equal-rank occupied and empty sectors,
-   and validate their reconstruction against the continuum kernels above.
+1. Construct the paper-style finite star bath on a real-time grid with the
+   causal optimized low-rank Cholesky algorithm of Gramsch et al.: factor
+   `-i Lambda^<` into the occupied sector and obtain the particle-hole-paired
+   empty-sector couplings by complex conjugation. Validate reconstruction and
+   exact time-window prefix invariance against the continuum kernels above.
    This product-state bath is a dilation of the stated `T=1` hybridization,
    not a zero-temperature surrogate.
 2. Resolve and implement the complete initial-state protocol, time-dependent
@@ -52,11 +54,13 @@ of the `Lb = 20` and `22` bath discretizations through approximately
 4. Only after that, consider the separate self-consistent NEQ-DMFT problem.
 
 The paper specifies the finite-temperature continuum hybridization but the
-supplied source does not give a numerical ramp duration `t1`; its
-non-self-consistent section also does not unambiguously settle the impurity
-initial-state protocol. These are explicit blockers, not parameters to infer.
-See [`docs/benchmark_contract.md`](docs/benchmark_contract.md) and the
-baseline configurations in [`configs/`](configs/).
+supplied source does not give a numerical ramp duration `t1`. The atomic
+impurity and occupied/empty bath product-state convention is resolved from the
+cited Balzer predecessor. The remaining `t1` ambiguity is recorded explicitly;
+`t1=0.25` is only a provisional engineering value and cannot support a full
+reproduction claim. See [`docs/benchmark_contract.md`](docs/benchmark_contract.md),
+[`docs/causal_timestep_convergence.md`](docs/causal_timestep_convergence.md),
+and the baseline configurations in [`configs/`](configs/).
 
 ## Environment
 
@@ -66,9 +70,15 @@ Julia is supplied by the `dmrgpp` Spack environment at
 Once Julia is available, initialize with:
 
 ```bash
-julia --project=. -e 'using Pkg; Pkg.add(["ITensors", "ITensorMPS"]); Pkg.precompile()'
+julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
 ```
 
-Generated trajectories, plots, and local Julia depot/precompile files must
-not be committed. Use this directory's ignored `tmp/` for scratch scripts and
-logs; do not use a shared system `/tmp` for this reference.
+The bounded non-self-consistent trajectory runner is
+`bin/wolf_technical_trajectory.jl`; use `--help` for its explicit numerical
+controls. It can checkpoint and restart both atomic spin-component MPS states.
+Python analysis tools use the tracked `pyproject.toml` and `uv.lock` through
+`uv run --project .`.
+
+Generated trajectories, plots, checkpoints, and local Julia/Python environment
+files must not be committed. Use this directory's ignored `tmp/` for scratch
+scripts and logs; do not use a shared system `/tmp` for this reference.

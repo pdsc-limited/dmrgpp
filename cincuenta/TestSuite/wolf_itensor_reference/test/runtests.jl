@@ -136,6 +136,93 @@ end
     end
 end
 
+@testset "Causal optimized low-rank Cholesky" begin
+    # Regression target from test_NeqBathDecomposition.cpp and the independent
+    # gbek_reference/gbek_cholesky.py implementation.
+    nsteps = 30
+    dt = 0.2
+    decay = 0.15
+    target = zeros(ComplexF64, nsteps + 1, nsteps + 1)
+    for n in 2:(nsteps + 1), j in 2:(nsteps + 1)
+        target[n, j] = 0.5 * exp(-decay * abs(n - j) * dt)
+    end
+    result = factorize_causal_cholesky(target; rank = 3)
+    reconstructed_diagonal = real.(diag(result.factor * result.factor'))
+    for (physical_step, expected) in (
+            1 => 0.5000000000000001,
+            5 => 0.49021304302869706,
+            10 => 0.4771665196067349,
+            15 => 0.4637717267240376,
+            20 => 0.45078669197353066,
+            25 => 0.437773730548557,
+            30 => 0.42485714581863027,
+        )
+        @test reconstructed_diagonal[physical_step + 1] ≈ expected rtol = 1e-6
+    end
+
+    # A genuinely complex phase catches a swapped conjugation that all-real
+    # positive-semidefinite targets cannot expose.
+    phase_target = zeros(ComplexF64, nsteps + 1, nsteps + 1)
+    phase_decay = 0.4
+    omega = 1.2
+    for n in 1:nsteps, j in 1:nsteps
+        tn = n * dt
+        tj = j * dt
+        phase_target[n + 1, j + 1] =
+            0.5 * exp(-phase_decay * abs(tn - tj)) * exp(im * omega * (tn - tj))
+    end
+    phase_factor = factorize_causal_cholesky(phase_target; rank = 3).factor
+    @test phase_factor[5, :] ≈ ComplexF64[
+        0.4208631578224682 + 0.36912556596604357im,
+        0.16775833438485793 + 0.08733680808421918im,
+        0.35551055925393726 + 0.08699937184079912im,
+    ] rtol = 1e-6
+    @test phase_factor[31, :] ≈ ComplexF64[
+        0.2776917711887221 + 0.22309940380070978im,
+        -0.08896792402662543 - 0.04153868424300278im,
+        -0.41272431535331866 - 0.08229556453955512im,
+    ] rtol = 1e-6
+
+    # The defining causal property: extending the requested time window must
+    # leave every already constructed coupling row unchanged.
+    short_times = collect(0.0:0.05:1.0)
+    long_times = collect(0.0:0.05:2.0)
+    for component in (:lesser, :greater)
+        sign = component == :lesser ? -im : im
+        short_kernel = sign * hybridization_matrix(
+            short_times; component, t1 = 0.25, intervals = 512
+        )
+        long_kernel = sign * hybridization_matrix(
+            long_times; component, t1 = 0.25, intervals = 512
+        )
+        short_factor = factorize_causal_cholesky(short_kernel; rank = 8).factor
+        long_factor = factorize_causal_cholesky(long_kernel; rank = 8).factor
+        @test long_factor[axes(short_factor, 1), :] ≈ short_factor atol = 1e-13 rtol = 1e-13
+        short_rows = causal_midpoint_factor_rows(short_times, short_factor)
+        long_rows = causal_midpoint_factor_rows(long_times, long_factor)
+        @test long_rows[axes(short_rows, 1), :] ≈ short_rows atol = 1e-13 rtol = 1e-13
+    end
+
+    particle_hole_times = collect(0.0:0.05:1.0)
+    particle_hole_lesser = -im * hybridization_matrix(
+        particle_hole_times; component = :lesser, t1 = 0.25, intervals = 512
+    )
+    particle_hole_greater = im * hybridization_matrix(
+        particle_hole_times; component = :greater, t1 = 0.25, intervals = 512
+    )
+    @test particle_hole_greater ≈ conj.(particle_hole_lesser) atol = 1e-13
+    occupied_factor = factorize_causal_cholesky(
+        particle_hole_lesser; rank = 8
+    ).factor
+    empty_factor = conj.(occupied_factor)
+    @test empty_factor * empty_factor' ≈
+          conj.(occupied_factor * occupied_factor') atol = 1e-13
+
+    @test_throws ArgumentError factorize_causal_cholesky(ones(2, 3); rank = 1)
+    @test_throws ArgumentError factorize_causal_cholesky(ones(3, 3); rank = 1)
+    @test_throws ArgumentError factorize_causal_cholesky(target; rank = -1)
+end
+
 @testset "Factorized star model specification" begin
     lesser_factor = ComplexF64[1 0.2im; 0.5 0.3; 0.1im -0.2]
     greater_factor = ComplexF64[0.4 -0.1im; -0.2 0.6; 0.3im 0.1]
@@ -791,6 +878,79 @@ end
     @test_throws ArgumentError midpoint_factorization_grid([0.1, 0.0])
     @test_throws ArgumentError midpoint_factorization_grid([0.0, Inf])
     @test_throws BoundsError factor_rows(lesser_factor, [0])
+end
+
+@testset "Causal spline midpoint coupling rows" begin
+    endpoints = [0.0, 0.1, 0.2, 0.3]
+    linear_factor = ComplexF64[
+        0 0
+        0.1 0.2im
+        0.2 0.4im
+        0.3 0.6im
+    ]
+    rows = causal_midpoint_factor_rows(endpoints, linear_factor)
+    @test rows[1:2:end, :] == linear_factor
+    @test rows[2:2:end, 1] ≈ [0.05, 0.15, 0.25] atol = 1e-14
+    @test rows[2:2:end, 2] ≈ im .* [0.1, 0.3, 0.5] atol = 1e-14
+
+    extended_endpoints = [endpoints; 0.4; 0.5]
+    extended_factor = [
+        linear_factor
+        0.4 0.8im
+        0.5 1.0im
+    ]
+    extended_rows = causal_midpoint_factor_rows(extended_endpoints, extended_factor)
+    @test extended_rows[axes(rows, 1), :] ≈ rows atol = 1e-14
+
+    @test_throws ArgumentError causal_midpoint_factor_rows([0.0], zeros(1, 2))
+    @test_throws DimensionMismatch causal_midpoint_factor_rows(
+        [0.0, 0.1], zeros(3, 2)
+    )
+end
+
+@testset "Wolf MPS checkpoint round trip" begin
+    checkpoint_directory = normpath(joinpath(ROOT, "..", "..", "..", "build", "tmp"))
+    mkpath(checkpoint_directory)
+    checkpoint_path = joinpath(checkpoint_directory, "wolf_checkpoint_roundtrip.h5")
+    rm(checkpoint_path; force = true)
+
+    sites = siteinds("Electron", 3; conserve_qns = true)
+    up_state = MPS(sites, ["Emp", "Up", "Dn"])
+    down_state = MPS(sites, ["Emp", "Dn", "Up"])
+    endpoints = [0.0, 0.1, 0.2]
+    couplings = reshape(ComplexF64.(1:10), 5, 2)
+    write_wolf_checkpoint(
+        checkpoint_path;
+        up_state,
+        down_state,
+        completed_step = 1,
+        maximum_projected_residual = 2.5e-9,
+        signature = "unit-test-signature",
+        endpoints,
+        couplings,
+    )
+    restored = read_wolf_checkpoint(checkpoint_path)
+    @test restored.completed_step == 1
+    @test restored.maximum_projected_residual == 2.5e-9
+    @test restored.signature == "unit-test-signature"
+    @test restored.endpoints == endpoints
+    @test restored.couplings == couplings
+    @test siteinds(restored.up_state) == siteinds(up_state)
+    @test siteinds(restored.down_state) == siteinds(down_state)
+    @test inner(up_state, restored.up_state) ≈ 1.0 atol = 1e-14
+    @test inner(down_state, restored.down_state) ≈ 1.0 atol = 1e-14
+
+    @test_throws ArgumentError write_wolf_checkpoint(
+        checkpoint_path;
+        up_state,
+        down_state,
+        completed_step = 3,
+        maximum_projected_residual = 0.0,
+        signature = "invalid",
+        endpoints,
+        couplings,
+    )
+    rm(checkpoint_path; force = true)
 end
 
 @testset "Versioned trajectory output schema" begin
