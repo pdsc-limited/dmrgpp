@@ -137,6 +137,60 @@ The physical DMFT grid spacing, engine propagation window, number of target
 times, sweep advancement, and local/physical checkpoint clocks must also remain
 explicit rather than being treated as interchangeable controls.
 
+## C++ DMRG execution boundary
+
+Three responsibilities are agreed; their division into classes is not yet
+chosen:
+
+1. **Describe and generate an engine run.** Translate a typed description of
+   the interval Hamiltonian, initialization/insertion/evolution operation,
+   checkpoint sources, logical state roles, propagation settings, and requested
+   measurements into DMRG input. Keep Ainur syntax, PureState encoding, complex
+   serialization, P-vector indices, and the temporary insertion workaround
+   inside this boundary.
+2. **Execute the run.** Invoke the existing in-process `DmrgRunner` with an
+   explicitly supplied application context and unique run/artifact identity.
+   This responsibility does not perform SCF, acceptance, bath decomposition,
+   or MPI scheduling.
+3. **Read and validate the result.** Return structured complex measurements,
+   checkpoint/state-slot metadata, physical/local clocks, and available norm
+   and truncation diagnostics. Existing logs and checkpoint metadata are an
+   acceptable initial transport; missing requested measurements or inconsistent
+   clocks must fail explicitly. Reading engine output is not Green-function
+   assembly or an acceptance decision.
+
+The neq backend chooses the required calculation; this boundary expresses and
+executes it; `NeqDmftSolver` owns the transaction/SCF control flow. Python inputs
+provide tested examples and regression fixtures, not a production dependency.
+MPI ownership is a separate design topic; supplying a unique job identity to
+this boundary does not imply that the boundary schedules ranks.
+
+### Equilibrium interfaces are not neq base classes
+
+`ImpuritySolverBase` is the base of the **equilibrium** impurity solvers. Its
+frequency-domain interface, Matsubara/real-frequency state, spectral-weight
+processing, and GS/omega input-generation assumptions do not define a neq
+impurity solver. The new backend must not inherit from it merely to obtain
+input-string helpers. `ImpuritySolverDmrg` is likewise not the scientific or
+architectural parent of the neq backend.
+
+The existing `NeqDmftSolver` solver-template contract, extended by the agreed
+explicit lifecycle, is the intended integration point. Reuse `DmrgRunner`
+itself and applicable low-level invocation patterns. Leave the equilibrium
+classes unchanged initially; any later extraction of genuinely shared helpers
+should be justified by concrete duplication rather than by their current names.
+
+### Class decomposition remains open
+
+Do not equate three responsibilities with a mandatory three-class hierarchy.
+They may initially be cohesive methods/private helpers with explicit request
+and result records; class extraction should follow actual ownership, testing,
+and lifetime requirements. The direct LanczosPlusPlus integration in
+`ImpuritySolverNeqGBEK` and the runner-mediated DMRG interface have different
+boundaries. The shape of that existing ED header alone does not settle the
+appropriate number of classes for the new backend. No new universal impurity
+base class is selected by this design.
+
 ## Meaning of a comparison with Wolf
 
 For this project, the proposed Wolf comparison is **validation against reported
@@ -161,9 +215,11 @@ attributed to DMRG.
 
 The agreed order is:
 
-1. **Finish this design.** The remaining major pieces are the C++ DMRG execution
-   adapter and MPI ownership/coordination. Complete the shared lifecycle details
-   as needed, including initialization, candidate validity, and acceptance.
+1. **Finish this design.** The C++ DMRG execution boundary's responsibilities
+   and separation from equilibrium interfaces are agreed above; concrete class
+   decomposition remains open. The next major piece is MPI ownership and
+   coordination. Complete shared lifecycle details as needed, including
+   initialization, candidate validity, and acceptance.
 2. **Pause neq-DMFT t-DMRG development after the design is complete.** Do not
    proceed directly from this discussion into a new t-DMRG backend.
 3. **In a separate session, refactor the existing C++ ED implementation to the
