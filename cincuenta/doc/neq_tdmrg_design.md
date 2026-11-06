@@ -208,6 +208,41 @@ problem now. Use the existing engine input vocabulary for each individual run.
 After the cincuenta case is understood, consider whether its coordination can
 be factored into a general facility and what user-facing input that requires.
 
+### Causal SCF work is not a generic all-pairs measurement schedule
+
+For a prescribed finite-system Hamiltonian, the complete coefficient history
+is known before the calculation. Reference preparation and insertion
+propagation still have dependencies, but the full task graph can be planned
+in advance; many measurement/trajectory jobs can proceed independently without
+waiting for a self-consistent bath update.
+
+In progressive neq-DMFT, future interval Hamiltonians are not yet known. The
+work has nested physical-step and trial-revision dependencies:
+
+```text
+accepted prefix through n-1
+    -> evaluate candidate row at n using one identified bath revision
+    -> assemble required Green-function results
+    -> construct Lambda row and revise candidate bath
+    -> repeat propagation from the same accepted prefix
+    -> coordinated acceptance of step n
+    -> begin step n+1
+```
+
+Parallelism is initially within a candidate-row evaluation, across the required
+spin-seed/channel/insertion jobs, rather than an unrestricted parallel-for over
+all future (t,t') pairs. Row assembly and the subsequent bath update establish
+a synchronization dependency, though its implementation need not be a literal
+MPI barrier. A superseded candidate invalidates its dependent trial results
+across workers, not the accepted history. Accepted-state/checkpoint locality
+across correctors may therefore matter more than in a one-shot prescribed-bath
+measurement calculation.
+
+This is another reason to keep initial coordination in cincuenta. Any later
+extraction of a generic two-time scheduler must separate trajectory-execution
+mechanisms from the causal SCF dependencies and transaction policy; it must not
+assume the two applications have identical task graphs.
+
 ### Coordination requirements
 
 * Use explicit logical identities for trajectory jobs and their accepted
