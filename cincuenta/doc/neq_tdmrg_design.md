@@ -3,7 +3,9 @@
 **Status:** design for a C++ impurity backend in `cincuenta/src`; not a statement
 that this backend or a spline option is implemented. The current production
 neq solver is `ImpuritySolverNeqGBEK` (ED). Python reference calculations remain
-back-checking tools, not the production neq-DMFT infrastructure.
+back-checking tools, not the production neq-DMFT infrastructure. The next work
+is the separate [ED acceptance refactor](neq_ed_acceptance_handoff.md); t-DMRG
+implementation is paused. See the [task roadmap](neq_tdmrg_roadmap.md).
 
 ## Reuse the real-time DMFT layer
 
@@ -236,9 +238,14 @@ accepted prefix through n-1
     -> begin step n+1
 ```
 
-Parallelism is initially within a candidate-row evaluation, across the required
-spin-seed/channel/insertion jobs, rather than an unrestricted parallel-for over
-all future (t,t') pairs. Row assembly and the subsequent bath update establish
+For the proposed forward paired-trajectory algorithm, parallelism is within a
+candidate-row evaluation, across the required spin-seed/channel/past-insertion
+jobs, rather than an unrestricted parallel-for over all future (t,t') pairs.
+This requires retained accepted trajectories and compatible branch/reference
+representations within each job. Redundant paired-reference propagation is the
+simple initial route, with job-dependent reference truncation errors to monitor.
+The equal-time entry comes from a chosen current reference, not another
+independent interval-propagation job. This is not ED's backward-row algorithm. Row assembly and the subsequent bath update establish
 a synchronization dependency, though its implementation need not be a literal
 MPI barrier. A superseded candidate invalidates its dependent trial results
 across workers, not the accepted history. Accepted-state/checkpoint locality
@@ -304,14 +311,17 @@ attributed to DMRG.
 
 ## Roadmap and session boundary
 
+Detailed tasks and exit gates are in [neq_tdmrg_roadmap.md](neq_tdmrg_roadmap.md).
+The separate-session assignment, source inventory, lifecycle decisions to
+finalize, and validation procedure are in
+[neq_ed_acceptance_handoff.md](neq_ed_acceptance_handoff.md).
+
 The agreed order is:
 
-1. **Finish this design.** The C++ DMRG execution boundary's responsibilities
-   and separation from equilibrium interfaces are agreed above; concrete class
-   decomposition remains open. MPI ownership is assigned to cincuenta; the
-   concrete execution/coordination policy remains to be settled. Complete shared
-   lifecycle details as needed, including initialization, candidate validity,
-   and acceptance.
+1. **Use this design baseline for the ED handoff.** Concrete class decomposition
+   and MPI execution policy remain open for later t-DMRG stages; they do not
+   block the bounded ED lifecycle refactor. Finalize its initialization and
+   state-transition details at the start of that separate session.
 2. **Pause neq-DMFT t-DMRG development after the design is complete.** Do not
    proceed directly from this discussion into a new t-DMRG backend.
 3. **In a separate session, refactor the existing C++ ED implementation to the
