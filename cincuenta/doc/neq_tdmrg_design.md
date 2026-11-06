@@ -162,8 +162,8 @@ chosen:
 The neq backend chooses the required calculation; this boundary expresses and
 executes it; `NeqDmftSolver` owns the transaction/SCF control flow. Python inputs
 provide tested examples and regression fixtures, not a production dependency.
-MPI ownership is a separate design topic; supplying a unique job identity to
-this boundary does not imply that the boundary schedules ranks.
+MPI ownership belongs to cincuenta, as specified below; supplying a unique
+job identity to this boundary does not imply that the boundary schedules ranks.
 
 ### Equilibrium interfaces are not neq base classes
 
@@ -191,6 +191,55 @@ boundaries. The shape of that existing ED header alone does not settle the
 appropriate number of classes for the new backend. No new universal impurity
 base class is selected by this design.
 
+## MPI ownership and scope
+
+**Cincuenta owns MPI coordination for the initial neq t-DMRG implementation.**
+Its ranks execute separate ordinary DMRG calculations through the C++ execution
+boundary. The initial parallelism is across trajectory/insertion jobs, not a
+requirement to distribute one target vector across those workers. Cincuenta
+owns their dependencies, trial revisions, result assembly, and acceptance.
+
+The general need for multiple insertions is not specific to DMFT: a full
+G(t,t') for a prescribed finite chain also needs such calculations. A general
+single-input DMRG facility and reusable MPI coordination may therefore be useful
+later. They are deliberately **not prerequisites** for this work. Do not expand
+DMRG's input language or introduce nested MPI launches to solve that broader
+problem now. Use the existing engine input vocabulary for each individual run.
+After the cincuenta case is understood, consider whether its coordination can
+be factored into a general facility and what user-facing input that requires.
+
+### Coordination requirements
+
+* Use explicit logical identities for trajectory jobs and their accepted
+  source/trial bath revision. Physical task identity must not be only an MPI
+  rank number. Assignment policy and checkpoint retention are separate choices.
+* Give runs distinct artifact namespaces so independent ranks/trials cannot
+  overwrite one another. Accepted representations remain immutable under the
+  shared transaction contract.
+* All jobs contributing to a candidate row must use the same identified bath
+  candidate and accepted prefix. Assemble the required channels and spin-seed
+  weights with explicit coverage checks; missing results are not zero values.
+* Acceptance is coordinated by cincuenta. A rank cannot independently promote
+  its trial while another required job has failed or is incomplete. Errors
+  must be communicated without leaving other ranks blocked in collectives.
+* Preserve the low-memory intent: a worker can run its assigned small target
+  sets sequentially. This design does not require collecting all insertion
+  targets into one DMRG calculation or keeping all their vectors in memory.
+
+### Details still to settle
+
+Cincuenta ownership alone does not select static versus dynamic job assignment,
+replicated versus coordinator-owned small control data, result collectives,
+artifact sharing/movement, or a dedicated coordinator rank. These remain design
+choices, not claims of implemented MPI support.
+
+Also verify that a worker's `DmrgRunner` invocation is rank-local. Unrelated
+jobs must not accidentally enter engine collectives over the same MPI world
+communicator. Existing independent-run usage is a useful reference, not proof
+that every real-time targeting path has the required communicator behavior.
+If isolation is needed, establish the appropriate runtime context without
+turning this into a new general DMRG input design.
+
 ## Meaning of a comparison with Wolf
 
 For this project, the proposed Wolf comparison is **validation against reported
@@ -217,9 +266,10 @@ The agreed order is:
 
 1. **Finish this design.** The C++ DMRG execution boundary's responsibilities
    and separation from equilibrium interfaces are agreed above; concrete class
-   decomposition remains open. The next major piece is MPI ownership and
-   coordination. Complete shared lifecycle details as needed, including
-   initialization, candidate validity, and acceptance.
+   decomposition remains open. MPI ownership is assigned to cincuenta; the
+   concrete execution/coordination policy remains to be settled. Complete shared
+   lifecycle details as needed, including initialization, candidate validity,
+   and acceptance.
 2. **Pause neq-DMFT t-DMRG development after the design is complete.** Do not
    proceed directly from this discussion into a new t-DMRG backend.
 3. **In a separate session, refactor the existing C++ ED implementation to the
@@ -242,8 +292,9 @@ accepting incomplete or mismatched trial results.
 ## Remaining implementation planning
 
 These contracts do not yet settle the detailed C++ backend API, accepted/trial
-artifact management, MPI task ownership, initial-state support beyond the
-atomic pure states, or the changing-Hamiltonian checkpoint mechanism. The known
+artifact management, concrete MPI task assignment and coordination,
+initial-state support beyond the atomic pure states, or the changing-Hamiltonian
+checkpoint mechanism. The known
 operator-on-P-vector insertion defect also remains unfixed; its temporary
 adapter must stay isolated. See
 [`../TestSuite/tdmrg_reference/PVECTOR_INSERTION_BUG.md`](../TestSuite/tdmrg_reference/PVECTOR_INSERTION_BUG.md)
