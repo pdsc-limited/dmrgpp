@@ -199,6 +199,13 @@ boundary. The initial parallelism is across trajectory/insertion jobs, not a
 requirement to distribute one target vector across those workers. Cincuenta
 owns their dependencies, trial revisions, result assembly, and acceptance.
 
+**ED MPI parallelization is out of scope.** `ImpuritySolverNeqGBEK` remains a
+serial reference backend, with root-only execution under an MPI launch. Do not
+parallelize its backward row sweeps, distribute its spin seeds/channels, or
+replace its algorithm to expose t-DMRG-style jobs in this effort. A shared
+transaction lifecycle does not require shared propagation algorithms or MPI
+execution. Keep t-DMRG task coordination separate from ED execution.
+
 The general need for multiple insertions is not specific to DMFT: a full
 G(t,t') for a prescribed finite chain also needs such calculations. A general
 single-input DMRG facility and reusable MPI coordination may therefore be useful
@@ -310,7 +317,9 @@ The agreed order is:
 3. **In a separate session, refactor the existing C++ ED implementation to the
    explicit acceptance lifecycle.** Update `NeqDmftSolver` and
    `ImpuritySolverNeqGBEK`, including bath-decomposition bookkeeping as needed.
-   Keep this separate from DMRG engine or backend implementation work.
+   Keep this separate from DMRG engine or backend implementation work. Do not
+   add ED MPI support or redesign its row-evaluation algorithm in that session;
+   preserve its serial/root-only execution.
 4. Validate the ED refactor before resuming t-DMRG implementation against that
    established lifecycle. Resumption is a subsequent work decision, not an
    automatic continuation of the ED refactor.
