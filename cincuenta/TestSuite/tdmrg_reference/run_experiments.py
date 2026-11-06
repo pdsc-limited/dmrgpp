@@ -35,13 +35,16 @@ def ainur_scalar(value):
 
 def make_input(output, *, nsites=5, nup=3, ndown=2, m=64, couplings=None,
                expressions=None, restart=None, restart_mapping=None,
-               onsite_u=2.0, potential=-1.0, finite_loops=None):
+               onsite_u=2.0, potential=-1.0, finite_loops=None, bath_energies=None):
     if (nsites < 3 or nup < 0 or ndown < 0 or nup > nsites or ndown > nsites
             or m < 1):
         raise ValueError("invalid lattice dimensions, particle counts, or retained states")
     couplings = list(couplings if couplings is not None else [0.] * (nsites - 1))
     if len(couplings) != nsites - 1:
         raise ValueError("star bath requires exactly nsites-1 couplings")
+    bath_energies = list(bath_energies if bath_energies is not None else [0.] * (nsites - 1))
+    if len(bath_energies) != nsites - 1:
+        raise ValueError("bath energies require exactly nsites-1 values")
     loops = finite_loops or f"[[@auto,{m},2],[@auto,{m},2]]"
     doubles = min(nup, ndown)
     states = ([PURE["up"]] * (nup - doubles) + [PURE["down"]] * (ndown - doubles)
@@ -56,7 +59,7 @@ def make_input(output, *, nsites=5, nup=3, ndown=2, m=64, couplings=None,
              f"InfiniteLoopKeptStates={m};", f"FiniteLoops={loops};",
              f"TargetElectronsUp={nup};", f"TargetElectronsDown={ndown};",
              "hubbardU=[" + ",".join([str(onsite_u)] + ["0"] * (nsites - 1)) + "];",
-             "potentialV=[" + ",".join(([str(potential)] + ["0"] * (nsites - 1)) * 2) + "];",
+             "potentialV=[" + ",".join(([str(potential)] + [str(x) for x in bath_energies]) * 2) + "];",
              "dir0:Connectors=[" + ",".join(map(ainur_scalar, couplings)) + "];",
              "GsWeight=0.1;"]
     if restart is None:

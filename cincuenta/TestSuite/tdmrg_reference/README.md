@@ -3,9 +3,21 @@
 Standalone experimental driver for the existing renormalized-block DMRG++
 `TargetingExpression` engine. No MPS/MPO redesign, production-engine edits, or
 DMFT feedback. Small baths test implementation correctness, **not** physical
-DMFT convergence. See [RESULTS.md](RESULTS.md) for measured outcomes and blockers.
+DMFT convergence. Start with the [normal advancement/tau study](NORMAL_SCHEDULE.md)
+for the engine's N-2 advancement and three-target defaults. The original driver
+below is a frozen-window restart stress test, not the normal advancing protocol.
+See [RESULTS.md](RESULTS.md) for its historical outcomes and limitations.
 
 ## Running
+
+For the normal advancement control:
+
+```sh
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python \\
+  cincuenta/TestSuite/tdmrg_reference/run_normal_schedule.py \\
+  --executable build/dmrg/dmrg --output build/normal_new_run \\
+  --m 256 --bath-bandwidth 2 --taus .2,.1,.05 --target-times 3
+```
 
 Build `dmrg` in the project's activated Spack environment. Python requires
 NumPy, SciPy, and h5py; the process/log utilities themselves use only stdlib.

@@ -1,6 +1,10 @@
 # Initial prescribed-bath experiment results
 
-These are implementation pilots, not a converged neq-DMFT calculation. Engine
+These are historical frozen-window implementation pilots, not the normal
+advancing protocol or a converged neq-DMFT calculation. The subsequent
+[normal-schedule study](NORMAL_SCHEDULE.md) restores N-2 advancement and the
+engine's three-target default and shows much smaller static-bath errors. The
+plateau below is not evidence of an intrinsic engine accuracy floor. Engine
 source was unchanged (baseline revision `196d86e5`). Release build: Clang 21.1.4,
 CPU batched GEMM, active scientific-workstation Spack environment. Python used
 NumPy 2.5.3, SciPy 1.18.1, h5py 3.16.0; BLAS/OpenMP threads were set to one.
