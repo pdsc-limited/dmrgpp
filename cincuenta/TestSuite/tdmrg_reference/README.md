@@ -87,11 +87,15 @@ policy. No simultaneous-target-all-insertions benchmark is claimed.
   `P1="c[0]*|P0>"` can be overwritten by the source P0 after operator application.
   `KetForTargetingExpression::multiply` leaves the old P index; the final
   `TargetingExpression::computePvectors` copy then replaces the result. The
-  harness instead uses existing `integer RestartSourceTvForPsi=1`, maps `[-1]`,
-  and applies the operator to `gs`. This workaround is tested at N5/N7, not a fix
-  for general P-ket expressions. No HDF5 state editing is used.
-* Promoting an endpoint to gs resets its clock. The harness records insertion
-  `physical_clock_origin` and validates evolution in insertion-local time.
+  harness instead uses the existing restart-to-gs facility. This temporary
+  backend is isolated in `insertion_restart.plan_insertion`; the physics loop
+  consumes its explicit mappings, ket roles, and clock origin. See
+  [PVECTOR_INSERTION_BUG.md](PVECTOR_INSERTION_BUG.md) for the focused reproducer
+  and engine-fix/removal checklist. It is tested at N5/N7, not a general P-ket
+  repair. No HDF5 state editing is used.
+* Promoting an endpoint to gs resets its clock. The insertion adapter owns that
+  reset and supplies `physical_clock_origin`; the driver validates the declared
+  insertion clock rather than assuming all backends reset it.
 * Checkpoints retain block Hamiltonians. Arbitrary changed-connector schedules
   must not be assumed to refresh all cached internal terms. These frozen-interval
   sweeps pass N5 ED checks, but the N7 plateau remains unexplained.

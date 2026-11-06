@@ -18,10 +18,11 @@ import h5py
 import numpy as np
 
 try:
-    from . import experiment_io, ed_reference
+    from . import experiment_io, ed_reference, insertion_restart
 except ImportError:
     import experiment_io
     import ed_reference
+    import insertion_restart
 
 PURE = {"empty": 0, "up": 2, "down": 1, "double": 3}
 TIME_PATH = "Def/FinalPsi/TimeSerializer/PvectorTimes/Values"
@@ -193,6 +194,18 @@ class Case:
         self.check_times(job, slots, [start + duration] * 2)
         return job, slots
 
+    def insert_branch(self, name, seed, kind, source, physical_time,
+                      source_endpoint, couplings):
+        """Execute the insertion adapter; keep its backend out of the physics loop."""
+        plan = insertion_restart.plan_insertion(kind, physical_time, source_endpoint)
+        job = self.stage(name, seed, list(plan.expressions), source,
+                         list(plan.restart_mapping), couplings, list(plan.measurements),
+                         source_tv_for_psi=plan.source_tv_for_psi)
+        job["physical_clock_origin"] = plan.physical_clock_origin
+        job["insertion_backend"] = plan.backend
+        self.check_times(job, [plan.branch_slot], [plan.local_insertion_time])
+        return job, plan
+
     def run(self):
         n = self.steps + 1
         greens = {}
@@ -225,31 +238,22 @@ class Case:
                     if j == 0 and ((seed == "alpha" and kind == "particle")
                                    or (seed == "beta" and kind == "hole")):
                         continue
-                    # Applying an operator directly to a P ket currently overwrites
-                    # the result with that source ket. Promote the saved endpoint to
-                    # gs using the existing restart facility, then apply c to gs.
-                    # gs has no persisted physical-time tag: this job uses local
-                    # time zero at insertion, with physical origin j*dt recorded.
-                    expr = [insertion_expression(seed, kind)]
-                    ref, branch = "gs", "P0"
-                    label = f"<{branch}|c|{ref}>" if kind == "hole" else f"<{ref}|c|{branch}>"
-                    inserted = self.stage(f"{seed}_{kind}_insert_{j}", seed, expr,
-                                          masters[j]["checkpoint"], [-1],
-                                          self.couplings[max(j - 1, 0)] if j else None,
-                                          [label, f"<{branch}|{branch}>", f"<{ref}|nup|{ref}>"],
-                                          source_tv_for_psi=1 if j else None)
-                    inserted["physical_clock_origin"] = j * self.dt
-                    self.check_times(inserted, [0], [0.])
+                    inserted, insertion = self.insert_branch(
+                        f"{seed}_{kind}_insert_{j}", seed, kind, masters[j]["checkpoint"],
+                        j * self.dt, 1 if j else None,
+                        self.couplings[max(j - 1, 0)] if j else None)
                     factor = 1j if kind == "hole" else -1j
-                    matrix[j, j] = factor * measured(inserted, label)
-                    previous, slots = inserted, [0, -1]
+                    matrix[j, j] = factor * measured(inserted, insertion.measurement_label)
+                    previous, slots = inserted, list(insertion.first_pair_mapping)
                     if seed == "alpha" and kind == "hole" and j == 0:
                         first_insertion = inserted
                     for k in range(j, self.steps):
                         job, slots = self.pair(f"{seed}_{kind}_{j}_to_{k+1}", seed,
-                                               previous["checkpoint"], slots, (k - j) * self.dt,
-                                               self.couplings[k], from_gs=(k == j))
-                        job["physical_clock_origin"] = j * self.dt
+                                               previous["checkpoint"], slots,
+                                               insertion.evolution_start(k * self.dt),
+                                               self.couplings[k],
+                                               from_gs=(k == j and insertion.first_pair_from_gs))
+                        job["physical_clock_origin"] = insertion.physical_clock_origin
                         pairlabel = "<P0.last|c|P1.last>" if kind == "hole" else "<P1.last|c|P0.last>"
                         matrix[k + 1, j] = factor * measured(job, pairlabel)
                         references.append({"seed": seed, "insertion": j, "channel": kind,
@@ -361,7 +365,8 @@ class Case:
                 "wft_warning_count": sum(len(j["parsed"]["wft_warnings"]) for j in self.jobs)},
             "jobs": [{key: j[key] for key in ("name", "cwd", "wall_seconds", "peak_child_rss_bytes",
                                                "checkpoints", "pvector_times", "input_sha256")}
-                      | {"physical_clock_origin": j.get("physical_clock_origin", 0.)}
+                      | {"physical_clock_origin": j.get("physical_clock_origin", 0.),
+                         "insertion_backend": j.get("insertion_backend")}
                      for j in self.jobs]}
         experiment_io.atomic_write_json(self.root / "summary.json", summary)
         return summary
