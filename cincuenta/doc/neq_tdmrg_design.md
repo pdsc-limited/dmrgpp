@@ -37,6 +37,59 @@ intervals. Acceptance freezes both the endpoint data and the chosen interval
 representation. Any future scheme requiring changes to accepted intervals
 would require a different rollback algorithm and is outside this contract.
 
+### Explicit lifecycle shared by ED and t-DMRG
+
+The transaction belongs to self-consistent real-time DMFT, not merely to a
+particular DMRG checkpoint format. Even a more elegant t-DMRG restart mechanism
+would not remove the distinction between accepted history and candidate
+propagation. Both impurity backends should expose explicit `beginTimeStep(n)`
+and `acceptTimeStep(n)` operations, controlled by `NeqDmftSolver`.
+
+The intended control flow is:
+
+```text
+beginTimeStep(n)             # accepted prefix still ends at n-1
+compute predictor G row
+repeat configured correctors:
+    construct Lambda row from current trial G
+    prepareTimeStep(n, Lambda)  # replace candidate bath; invalidate trial propagation
+    computeGimp(n)             # evaluate from accepted n-1, never implicitly accept
+acceptTimeStep(n)            # publish the completed, matching bath/state/G result
+```
+
+Acceptance must not perform an additional bath update. It accepts the candidate
+bath and the propagation/observables evaluated with that candidate, not a new
+fit for which no propagation has been performed. Fixed-count correctors do not
+thereby become an exactly converged fixed-point solve. An incomplete or failed
+trial must not become the starting point of the next physical step.
+
+The accepted/trial boundary includes state validity, bath-decomposition
+bookkeeping, Green-function rows, and diagnostics—not only state-vector files.
+Detailed lifecycle signatures, initialization at n=0, and failure/cancellation
+handling remain part of the remaining interface design.
+
+#### Existing implicit ED behavior
+
+`ImpuritySolverNeqGBEK::prepareTimeStep` already invalidates propagation through
+n by reducing `propagatedThrough` to at most n-1. The next `computeGimp` calls
+`ensurePropagated`, repropagates the stored reference from n-1 with the revised
+midpoint Hamiltonian, regenerates inserted states at n, and overwrites the
+candidate Green-function row and diagnostics. Accepted earlier history is
+retained. The last candidate at n is implicitly accepted when propagation to
+n+1 uses it as its starting state.
+
+This is easier in ED because the Fock-space basis is fixed: the stored vector
+at n-1 stays usable after a trial. DMRG must also retain its compatible
+renormalized representation. The current ED implementation nevertheless has
+no explicit accepted-step marker or general failure-safe transaction; candidate
+bath data, state entries, and outputs are updated in place.
+
+The planned ED lifecycle is therefore meaningful, not just no-op compatibility
+methods for a DMRG interface. It can use the existing history arrays and
+lightweight acceptance/validity bookkeeping rather than copying the entire ED
+history for every trial. The treatment of mutable decomposition bookkeeping
+must be audited as part of that refactor.
+
 ## Bath coefficients within an interval
 
 The initial implementation must match the current C++ ED convention:
@@ -104,12 +157,38 @@ midpoint coefficients. Interpolation changes should be checked against a
 matching ED propagation convention before paper-data discrepancies are
 attributed to DMRG.
 
+## Roadmap and session boundary
+
+The agreed order is:
+
+1. **Finish this design.** The remaining major pieces are the C++ DMRG execution
+   adapter and MPI ownership/coordination. Complete the shared lifecycle details
+   as needed, including initialization, candidate validity, and acceptance.
+2. **Pause neq-DMFT t-DMRG development after the design is complete.** Do not
+   proceed directly from this discussion into a new t-DMRG backend.
+3. **In a separate session, refactor the existing C++ ED implementation to the
+   explicit acceptance lifecycle.** Update `NeqDmftSolver` and
+   `ImpuritySolverNeqGBEK`, including bath-decomposition bookkeeping as needed.
+   Keep this separate from DMRG engine or backend implementation work.
+4. Validate the ED refactor before resuming t-DMRG implementation against that
+   established lifecycle. Resumption is a subsequent work decision, not an
+   automatic continuation of the ED refactor.
+
+The ED refactor should preserve the current midpoint convention, supported
+physical initialization, spin averaging, Green-function conventions, and
+fixed-corrector scheme. Establish numerical baseline equivalence; any discovered
+transaction defect requiring numerical changes must be explained and reviewed,
+not hidden inside a structural refactor. Tests should cover repeated candidate
+evaluation from unchanged accepted history, replacement of a candidate bath,
+explicit acceptance, rejection of invalid step transitions, and prevention of
+accepting incomplete or mismatched trial results.
+
 ## Remaining implementation planning
 
-These contracts do not yet settle the C++ backend API, accepted/trial artifact
-management, MPI task ownership, initial-state support beyond the atomic pure
-states, or the changing-Hamiltonian checkpoint mechanism. The known operator-on-
-P-vector insertion defect also remains unfixed; its temporary adapter must stay
-isolated. See
+These contracts do not yet settle the detailed C++ backend API, accepted/trial
+artifact management, MPI task ownership, initial-state support beyond the
+atomic pure states, or the changing-Hamiltonian checkpoint mechanism. The known
+operator-on-P-vector insertion defect also remains unfixed; its temporary
+adapter must stay isolated. See
 [`../TestSuite/tdmrg_reference/PVECTOR_INSERTION_BUG.md`](../TestSuite/tdmrg_reference/PVECTOR_INSERTION_BUG.md)
 for the reproducer and fix/removal checklist.
