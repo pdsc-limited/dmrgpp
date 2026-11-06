@@ -23,7 +23,10 @@ This second stage is set up by adding a `TmaxNeq=` line (with a positive value) 
 your usual equilibrium input — its presence is what turns on neq mode.
 
 The sole production neq method is the positive-rank GBEK two-bath
-exact-diagonalization scheme described below.
+exact-diagonalization scheme described below. The planned C++ t-DMRG backend's
+[design contracts](neq_tdmrg_design.md) specify matching this solver's frozen
+midpoint convention first, interval-local alternatives, and the scope of
+future comparisons against published data; that backend is not implemented yet.
 
 ### How much bath does the quench see? `NeqBathRank=`
 

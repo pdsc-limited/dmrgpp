@@ -5,7 +5,10 @@
 > `ImpuritySolverExactDiag`). It predates the **non-equilibrium (neq)** GBEK
 > solver path (`ImpuritySolverNeqGBEK`, `TmaxNeq=`, etc.). For the neq-DMFT
 > input format, see
-> [`neq_dmft_ed_input.md`](neq_dmft_ed_input.md). Treat the equilibrium
+> [`neq_dmft_ed_input.md`](neq_dmft_ed_input.md). The planned real-time t-DMRG
+> backend's agreed contracts are in
+> [`neq_tdmrg_design.md`](neq_tdmrg_design.md); they are separate from this
+> frequency-domain design. Treat the equilibrium
 > material below as a useful but unverified starting point — it has not been
 > re-checked against the current code.
 

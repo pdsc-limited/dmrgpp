@@ -1,0 +1,115 @@
+# Non-equilibrium t-DMRG: agreed design contracts
+
+**Status:** design for a C++ impurity backend in `cincuenta/src`; not a statement
+that this backend or a spline option is implemented. The current production
+neq solver is `ImpuritySolverNeqGBEK` (ED). Python reference calculations remain
+back-checking tools, not the production neq-DMFT infrastructure.
+
+## Reuse the real-time DMFT layer
+
+The intended implementation reuses `NeqDmftSolver`, `NeqHybridizationTarget`,
+`NeqBathDecomposition`, and `NeqRealTimeGf`. It replaces the ED-specific impurity
+propagation with traditional renormalized-block DMRG. It does not port the
+scientific algorithm from the equilibrium Matsubara/correction-vector solver.
+Existing in-process `DmrgRunner` invocation and MPI programming patterns can be
+mechanical references without importing frequency-domain physics.
+
+## Accepted history and corrector trials
+
+At physical step n, the SCF correctors update the complete new target row
+
+    Lambda(t_n,t_j) = v(t_n) Gimp(t_n,t_j) v(t_j),  j = 0,...,n,
+
+and fit the corresponding bath endpoint amplitudes V(t_n). Here v is the
+lattice hopping; V denotes impurity-to-auxiliary-bath hopping amplitudes.
+Previously accepted time rows and endpoint amplitudes remain fixed.
+
+Every candidate for step n repropagates from the same accepted state at
+`t_(n-1)`. For DMRG, this means the accepted reference/inserted states **and their
+renormalized representations**, not versions transformed or truncated while
+following a preceding trial at `t_n`. Repropagation is an intentional cost of
+this algorithm; trial evolution is not assumed reversible.
+
+**Interval-locality contract:** once an interval is accepted, its bath
+coefficient function is immutable. A corrector may change the current trial
+interval but must not retroactively change the Hamiltonian on accepted
+intervals. Acceptance freezes both the endpoint data and the chosen interval
+representation. Any future scheme requiring changes to accepted intervals
+would require a different rollback algorithm and is outside this contract.
+
+## Bath coefficients within an interval
+
+The initial implementation must match the current C++ ED convention:
+
+    V_mid = (V(t_(n-1)) + V(t_n)) / 2.
+
+`ImpuritySolverNeqGBEK::computeVMid` computes these amplitudes and holds them
+fixed over the interval. The DMRG backend must match the same Hamiltonian,
+complex-hopping orientation, and occupied/empty-bath conjugation conventions.
+Changing V(t_n) during a corrector therefore requires recomputing that interval.
+Changing input connectors alone must not be assumed to refresh all Hamiltonian
+terms cached in a DMRG checkpoint; the implementation must establish and test
+the update/rebuild path.
+
+The convention must be isolated behind an interval coefficient policy, so a
+future alternative need not alter Green-function assembly or SCF control flow.
+The initial policy is **frozen midpoint**. Alternate policies are assumed to be
+**interval-local**, not global refits of the accepted coefficient history.
+A future cubic/Hermite or spline policy must specify its endpoint derivatives,
+boundary conditions, and available data, and preserve accepted intervals.
+Merely calling a scheme "piecewise" does not guarantee locality: coefficients
+of an ordinary piecewise cubic spline can depend on samples across the entire
+trajectory.
+
+No particular spline construction or new input keyword is selected here.
+Midpoint behavior and its ED comparisons are the initial implementation target.
+
+### Separate coefficient policy, propagation, and targeting
+
+Keep these distinct in the C++ design:
+
+1. The bath coefficient function supplied over the physical interval.
+2. The numerical propagator that integrates that time-dependent Hamiltonian.
+3. The intermediate state samples used in DMRG targeting.
+
+Three TimeEvolve targets mean states at the window start, midpoint, and end;
+they are not automatically three integration stages or three evaluations of V.
+For frozen midpoint all three states follow the same constant Hamiltonian.
+For a future varying coefficient function, target states must follow the
+appropriate time-ordered propagation. Independently substituting a different
+instantaneous Hamiltonian into each constant-H exponential is not generally
+equivalent.
+
+The physical DMFT grid spacing, engine propagation window, number of target
+times, sweep advancement, and local/physical checkpoint clocks must also remain
+explicit rather than being treated as interchangeable controls.
+
+## Meaning of a comparison with Wolf
+
+For this project, the proposed Wolf comparison is **validation against reported
+data**, not a claim of exact algorithmic reproduction. The available description
+of "standard spline interpolation" does not establish the needed boundary,
+causal-support, or coefficient-update details. We must not infer from that
+phrase whether a global or progressive bath decomposition was used, or assert
+that our future interval-local interpolation is identical to theirs.
+
+Wolf's MPS-formalism implementation is also distinct from the traditional
+renormalized-block DMRG engine used here. We can compare matched physical
+models, observables, and controlled numerical results without claiming the same
+state-evolution or truncation algorithm. Document known protocol differences
+and uncertainty when making such comparisons.
+
+The first implementation-level oracle remains our C++ ED solver with matching
+midpoint coefficients. Interpolation changes should be checked against a
+matching ED propagation convention before paper-data discrepancies are
+attributed to DMRG.
+
+## Remaining implementation planning
+
+These contracts do not yet settle the C++ backend API, accepted/trial artifact
+management, MPI task ownership, initial-state support beyond the atomic pure
+states, or the changing-Hamiltonian checkpoint mechanism. The known operator-on-
+P-vector insertion defect also remains unfixed; its temporary adapter must stay
+isolated. See
+[`../TestSuite/tdmrg_reference/PVECTOR_INSERTION_BUG.md`](../TestSuite/tdmrg_reference/PVECTOR_INSERTION_BUG.md)
+for the reproducer and fix/removal checklist.
