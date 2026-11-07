@@ -11,6 +11,9 @@ DMRG is the target engine, not a proposed MPS/MPO redesign.
 [ED acceptance refactor](neq_ed_acceptance_handoff.md) in a separate branch and
 session. That refactor must be validated before resuming t-DMRG development.
 This roadmap does not authorize starting the backend during that session.
+For a later fresh session after the ED exit gate, use the
+[resume handoff](neq_tdmrg_resume_handoff.md) and the completed ED refactor's
+actual return report; the original planning conversation is not required.
 
 The design baseline settles transaction ownership, interval locality, adapter
 responsibilities, and cincuenta MPI ownership. Concrete signatures,

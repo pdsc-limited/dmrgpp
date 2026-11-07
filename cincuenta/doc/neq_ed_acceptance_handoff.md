@@ -225,7 +225,10 @@ discuss before pushing.
 Return the commit range, chosen API/state table, baseline and post-change test
 commands/results, numerical differences, unresolved issues, and integration
 instructions. Update the shared design/roadmap to match the implemented contract.
-**Stop; do not resume t-DMRG implementation in this session.**
+**Stop; do not resume t-DMRG implementation in this session.** The later session
+can use [neq_tdmrg_resume_handoff.md](neq_tdmrg_resume_handoff.md), together with
+your actual return handoff and validated commits. Link those in your report;
+do not follow that resume assignment as an automatic next task here.
 
 ## Suggested opening prompt for the new session
 
